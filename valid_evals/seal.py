@@ -35,6 +35,10 @@ def validate(m: dict) -> None:
     judges = m["judges"]
     if len(judges) != 2 or len({j["vendor"] for j in judges}) != 2:
         raise SealError("jury needs two judges from two different vendors")
+    cal = m.get("calibration")
+    if cal is not None and not (isinstance(cal, dict) and isinstance(cal.get("min_kappa"), (int, float))
+                                and isinstance(cal.get("min_labels"), int) and cal["min_labels"] > 0):
+        raise SealError("calibration needs a numeric min_kappa and a positive integer min_labels")
 
 
 def lock_path(manifest_path: Path) -> Path:

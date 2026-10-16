@@ -3,6 +3,9 @@
   python -m valid_evals seal MANIFEST            freeze the rule (writes MANIFEST.lock)
   python -m valid_evals check MANIFEST TRACE...  validity of each run trace
   python -m valid_evals run MANIFEST CASES_DIR   check + jury + decide over CASES_DIR/<case>/{trace.jsonl,case.txt}
+  python -m valid_evals calibrate MANIFEST CASES_DIR LABELS
+                                                 judge agreement from CASES_DIR/results.jsonl vs LABELS
+                                                 ({"case": "pass"|"fail"}), gated by the sealed minimum kappa
 
 Exit codes: 0 sealed rule passed, 1 sealed rule failed, 2 refused (broken seal, too few valid cases, bad input).
 """
@@ -14,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-from valid_evals import decide, jury, seal, validity
+from valid_evals import calibrate, decide, jury, seal, validity
 
 
 def _check(manifest: dict, trace: Path) -> dict:
@@ -54,6 +57,10 @@ def main(argv=None) -> int:
     r = sub.add_parser("run")
     r.add_argument("manifest", type=Path)
     r.add_argument("cases_dir", type=Path)
+    k = sub.add_parser("calibrate")
+    k.add_argument("manifest", type=Path)
+    k.add_argument("cases_dir", type=Path)
+    k.add_argument("labels", type=Path)
     a = ap.parse_args(argv)
     try:
         if a.cmd == "seal":
@@ -65,8 +72,13 @@ def main(argv=None) -> int:
             for res in results:
                 print(json.dumps(res))
             return 0 if all(res["valid"] for res in results) else 1
+        if a.cmd == "calibrate":
+            rows = [json.loads(x) for x in (a.cases_dir / "results.jsonl").read_text().splitlines() if x.strip()]
+            report = calibrate.calibrate(a.manifest, rows, json.loads(a.labels.read_text(encoding="utf-8")))
+            print(json.dumps(report))
+            return 0 if report["ok"] else 1
         return cmd_run(a.manifest, a.cases_dir)
-    except (seal.SealError, decide.DecisionError, OSError, json.JSONDecodeError, KeyError) as e:
+    except (seal.SealError, decide.DecisionError, calibrate.CalibrationError, OSError, json.JSONDecodeError, KeyError) as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 2
 

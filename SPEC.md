@@ -28,6 +28,10 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
 4. `decide`: verifies the seal, keeps only cases that are VALID and agreed, checks min_valid_cases, applies the
    comparator, and prints the pre-written sentence. A broken seal, too few valid cases, or a bad input exits
    non-zero (fail closed).
+5. `calibrate`: reads the votes `run` wrote to `results.jsonl` and a human label file `{"case": "pass"|"fail"}`.
+   Reports n, raw agreement and Cohen's kappa for judge vs judge and each judge vs the people, plus judge errors.
+   Passes only if every kappa meets the sealed `calibration.min_kappa`; fewer than `calibration.min_labels`
+   labeled cases, a missing calibration block, a bad label or an undefined kappa (one label only) fail closed.
 
 ## Determinism
 Validity is pure Python over the trace, with no model calls. Canaries are fixed strings placed inside the
@@ -47,6 +51,7 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 9 | Tiny sample passes by luck | min_valid_cases |
 | 10 | stream-json format changes | parser tolerant to unknown events, strict on the fields it uses; redacted real traces pin the format (tests/fixtures) |
 | 11 | Runner cannot prove the model (Codex) | model_unverified, unless the sealed rule says to trust the runner |
+| 13 | Judges agree with each other but not with people | calibrate: sealed min kappa against a human sample |
 | 12 | A prompt added mid run (Codex resume) | more than one turn.started is a human_turn |
 
 ## DoD
