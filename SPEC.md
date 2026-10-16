@@ -51,8 +51,8 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 9 | Tiny sample passes by luck | min_valid_cases |
 | 10 | stream-json format changes | parser tolerant to unknown events, strict on the fields it uses; redacted real traces pin the format (tests/fixtures) |
 | 11 | Runner cannot prove the model (Codex) | model_unverified, unless the sealed rule says to trust the runner |
-| 13 | Judges agree with each other but not with people | calibrate: sealed min kappa against a human sample |
 | 12 | A prompt added mid run (Codex resume) | more than one turn.started is a human_turn |
+| 13 | Judges agree with each other but not with people | calibrate: sealed min kappa against a human sample |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs
