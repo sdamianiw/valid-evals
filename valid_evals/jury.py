@@ -1,0 +1,52 @@
+"""Two judges from two vendors. Each judge is a command that reads the case on stdin and prints
+{"verdict": "pass"|"fail"}. Only agreement counts; a split goes to a human queue."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from dataclasses import dataclass, field
+
+TIMEOUT_S = 300
+
+
+@dataclass
+class JuryResult:
+    verdict: str  # PASS, FAIL, DISAGREE or JUDGE_ERROR
+    votes: dict = field(default_factory=dict)
+
+
+def _vote(judge: dict, case_text: str) -> str:
+    try:
+        proc = subprocess.run(judge["cmd"], input=case_text, capture_output=True, text=True, timeout=TIMEOUT_S)
+    except (OSError, subprocess.TimeoutExpired):
+        return "error"
+    if proc.returncode != 0:
+        return "error"
+    for line in reversed(proc.stdout.strip().splitlines()):
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("is_error"):
+            return "error"
+        # plain {"verdict": ...}, or claude -p --output-format json --json-schema, which nests it
+        v = obj.get("verdict", (obj.get("structured_output") or {}).get("verdict"))
+        return v if v in ("pass", "fail") else "error"
+    return "error"
+
+
+def judge(case_text: str, judges: list[dict]) -> JuryResult:
+    votes = {j["name"]: _vote(j, case_text) for j in judges}
+    vals = set(votes.values())
+    if "error" in vals:
+        verdict = "JUDGE_ERROR"
+    elif vals == {"pass"}:
+        verdict = "PASS"
+    elif vals == {"fail"}:
+        verdict = "FAIL"
+    else:
+        verdict = "DISAGREE"
+    return JuryResult(verdict, votes)
