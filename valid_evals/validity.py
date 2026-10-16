@@ -68,14 +68,33 @@ def _model_ok(model, allowed: list[str]) -> bool:
     return any(model == a or (not _DATED.search(a) and _DATED.sub("", model) == a) for a in allowed)
 
 
+# text the agent writes or explains, not a location it reads: a path mentioned here is not a read
+PROSE_KEYS = frozenset({"content", "new_string", "old_string", "description", "prompt"})
+_BEFORE = r"(?:^|(?<=[\s/\"'=:(<>|;&,`]))"
+_AFTER = r"(?=/|$|[\s\"'):;|&>,`])"
+
+
+def _tool_strings(obj):
+    """Decoded strings of a tool input, skipping prose fields."""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            if k not in PROSE_KEYS:
+                yield from _tool_strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _tool_strings(v)
+
+
 def reference_paths(tool_input, manifest: dict, add) -> None:
-    """A tool call that names a sealed reference path is a leak, whatever it did with the content. Matching is on
-    decoded strings, case folded, with backslashes as slashes and no trailing separator: a plain fragment match,
-    so it errs toward false alarms."""
-    texts = [norm_path(s) for s in strings(tool_input)]
+    """A tool call that names a sealed reference path is a leak, whatever it did with the content. The fragment
+    must appear as whole path segments (case folded, backslashes read as slashes) in a field that is not prose,
+    so `cross-reference` or `preferences/` do not match."""
+    texts = [norm_path(s) for s in _tool_strings(tool_input)]
     for path in manifest.get("reference_paths", []):
-        frag = norm_path(path).rstrip("/")
-        if any(frag in t for t in texts):
+        pattern = re.compile(_BEFORE + re.escape(norm_path(path).strip("/")) + _AFTER, re.M)
+        if any(pattern.search(t) for t in texts):
             add("reference_leak", {"path": path})
 
 

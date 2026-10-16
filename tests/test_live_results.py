@@ -41,6 +41,15 @@ class TestLiveFigures(unittest.TestCase):
         self.assertEqual(len(costs), 12)
         self.assertAlmostEqual(sum(costs), 0.0418, 4)
         self.assertAlmostEqual(max(costs), 0.024, 3)
+        self.assertAlmostEqual(sum(costs) - max(costs), 0.0178, 4)  # the 11 Haiku runs; the max is the Sonnet run
+
+    def test_short_runs_and_denied_test_commands(self):
+        denied, turns = 0, []
+        for p in sorted(LIVE.glob("0*.jsonl")):
+            res = [json.loads(x) for x in p.read_text().splitlines() if '"type": "result"' in x][-1]
+            denied += bool(res["permission_denials"])
+            turns.append(res["num_turns"])
+        self.assertEqual((denied, min(turns), max(turns)), (6, 4, 7))
 
 
 if __name__ == "__main__":

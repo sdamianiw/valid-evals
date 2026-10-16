@@ -32,7 +32,7 @@ JUDGE_PROMPT = "Grade the case below against its rubric only. Answer pass or fai
 def claude_cmd(model: str, prompt: str) -> str:
     return " ".join(["claude", "--bare", "-p", shlex.quote(prompt), "--model", shlex.quote(model),
                      "--tools", shlex.quote(",".join(TOOLS)),
-                     "--allowedTools", shlex.quote("Read,Edit,Glob,Grep,Bash(python3 -m unittest*)"),
+                     "--allowedTools", shlex.quote("Read,Edit,Glob,Grep,Bash(python *),Bash(python3 *)"),
                      "--max-turns", "15", "--max-budget-usd", "0.50",
                      "--output-format", "stream-json", "--verbose"])
 

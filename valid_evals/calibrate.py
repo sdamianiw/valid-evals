@@ -30,6 +30,8 @@ def verify_rows(manifest_path: Path, rows: list[dict], cases_dir: Path) -> None:
     for r in rows:
         if r.get("manifest_sha256") != h:
             raise CalibrationError(f"{r.get('case')}: results come from another manifest; run again")
+        if r.get("code_sha256") != seal.code_digest():
+            raise CalibrationError(f"{r.get('case')}: results come from another valid-evals version; run again")
         trace = (root / str(r.get("trace"))).resolve()
         if root not in trace.parents:
             raise CalibrationError(f"{r.get('case')}: trace path outside the cases folder")

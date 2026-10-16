@@ -27,6 +27,14 @@ def digest(manifest: dict) -> str:
     return hashlib.sha256(canonical(manifest)).hexdigest()
 
 
+def code_digest() -> str:
+    """sha256 of this package's source: the rule is the manifest plus the code that applies it."""
+    h = hashlib.sha256()
+    for f in sorted(Path(__file__).parent.glob("*.py")):
+        h.update(f.name.encode() + b"\0" + f.read_bytes() + b"\0")
+    return h.hexdigest()
+
+
 def _number(x) -> bool:
     return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
 

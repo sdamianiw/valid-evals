@@ -1,8 +1,8 @@
 # Live demo runbook
 
 Goal: produce real figures for the README on a small public task: cost per run, runs caught as invalid, and how
-often a Claude judge and a Codex judge agree with each other and with you. Nothing here is measured yet. Every
-figure you report must come out of these commands.
+often a Claude judge and a Codex judge agree with each other and with you. The validity step has been run once
+(README, "Measured so far"); the jury has not. Every figure you report must come out of these commands.
 
 Budget: 12 agent runs capped at 0.50 USD each by `--max-budget-usd`, plus 2 judge calls per valid run. A real
 Haiku judge call in our check cost 0.0010 USD (`tests/fixtures/claude_2_1_301_judge_json_schema.json`); agent runs will cost more and depend on the model you pick.
@@ -119,7 +119,7 @@ check of the judges, not a calibration. Report the counts, not only kappa.
 | Figure | Source |
 |---|---|
 | total and per run cost (USD) | `live.py cost` |
-| planted runs caught (sensitivity, out of 2) | `run` output for `90_planted_leak` and `91_planted_model` |
+| planted runs caught (out of 2; both are planted on purpose, so this checks the parser, not detection of a real cheat) | `run` output for `90_planted_leak` and `91_planted_model` |
 | clean runs flagged invalid (false alarms, out of 10) | `run` output for the other runs, with each cause |
 | pass rate, 95% interval, bounds if disagreements had gone either way | the JSON line `run` prints |
 | judge agreement, 2x2 counts, kappa, n, judge errors, final decision | `calibrate` output |

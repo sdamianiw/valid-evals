@@ -51,3 +51,15 @@ A second red team agent attacked the fixes. Grouped by failure mode before fixin
 Still open from round 2's "could not verify": whether real Claude Code emits main thread user text that is not
 human (compaction summaries, skill content), which would read as human_turn; and whether the Codex judge can read
 files by absolute path despite the empty working directory.
+
+## Advisor, after round 2
+
+The round 2 path fix overreached: the fragment matched inside any string of a tool input, so `# cross-reference`
+in code the agent wrote, a Bash description, or a `preferences/` folder all read as a leak, and a leak outranks
+every cause but run errors and isolation. Now the fragment must appear as whole path segments, and prose fields
+(`content`, `new_string`, `old_string`, `description`, `prompt`) are skipped; a subagent prompt that names the
+path is still caught when the subagent itself reads it. Tests: `tests/test_v031.py`, with both rounds' leak
+cases still caught.
+
+The advisor also noted that the seal covered the manifest but not the code that applies it. `run` now records
+`code_sha256`, a hash of the package source, in every row, and `calibrate` refuses results from other code.

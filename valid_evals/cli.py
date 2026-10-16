@@ -35,7 +35,7 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     for case in sorted(p for p in cases_dir.iterdir() if p.is_dir()):
         # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
         row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl",
-               "manifest_sha256": seal.digest(m)}
+               "manifest_sha256": seal.digest(m), "code_sha256": seal.code_digest()}
         if row["valid"]:
             j = jury.judge((case / "case.txt").read_text(encoding="utf-8"), m["judges"])
             row.update(verdict=j.verdict, votes=j.votes)

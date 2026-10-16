@@ -1,4 +1,4 @@
-# valid-evals SPEC v0.3
+# valid-evals SPEC v0.3.1
 
 ## Goal
 An agent eval can pass for the wrong reasons: the run used another model, read the answer key, got help from a
@@ -65,6 +65,7 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 18 | A judge sees more than the case, or prose after its JSON | empty cwd; whole output or last line only |
 | 19 | Calibration passes while judges mostly error | sealed max_judge_error_rate |
 | 20 | Split cases decide the outcome unseen | Wilson interval and bounds printed with every decision |
+| 21 | The code that applies the rule changed between run and calibrate | code_sha256 in every row; calibrate refuses a mismatch |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs

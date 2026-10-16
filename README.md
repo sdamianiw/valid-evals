@@ -85,7 +85,7 @@ Run the commands from the repo root, or set `PYTHONPATH` to it.
 | `canaries` | yes | at least one string planted in every reference file |
 | `require_bare` | yes | `true`: MCP servers or plugins other than the CLI's builtin ones make the run invalid |
 | `judges` | yes | two judges, different names and vendors, each `{"name", "vendor", "cmd": [...]}` |
-| `reference_paths` | no | path fragments; a tool call that names one is a leak (case folded, `\` read as `/`) |
+| `reference_paths` | no | path fragments; a tool call that names one as whole path segments is a leak (case folded, `\` read as `/`; prose fields such as `content` or `description` are skipped) |
 | `trust_runner_model` | no | `true` accepts Codex runs whose trace names no model |
 | `calibration` | no | `{"min_kappa", "min_labels", "max_judge_error_rate"}`; makes `run` provisional until `calibrate` passes |
 
@@ -160,18 +160,23 @@ authenticate there). No judge was run, so there is no pass rate or agreement fig
 |---|---|
 | clean runs flagged invalid | 0 of 10 |
 | planted runs caught with the right cause | 2 of 2 (`reference_leak`, `model_mismatch`) |
-| agent cost, 12 runs | 0.0418 USD |
+| agent cost, 12 runs | 0.0418 USD: 0.0178 for the 11 Haiku runs, 0.0240 for the one Sonnet run |
 
 Every one of the 12 runs passed the task's tests, the two planted ones included. A score taken from tests alone
 would have counted the run that read the answer key and the run on the wrong model. The traces are in
-`tests/fixtures/live_2026_10_16` and `tests/test_live_results.py` reproduces each figure. Ten clean runs is a
-small sample: it says the gates did not fire on ordinary runs of this task, not what the false alarm rate is.
+`tests/fixtures/live_2026_10_16` and `tests/test_live_results.py` reproduces each figure.
+
+Read these figures narrowly. Ten clean runs is a small sample: it says the gates did not fire on ordinary runs of
+this task, not what the false alarm rate is. The runs were short (4 to 7 turns), with no subagent, compaction or
+hook, and in 6 of them the agent's test commands were denied by a too narrow allowlist (since widened). Both
+planted runs were set up to be caught: the leak run was invited to read the answer key. They show the checks
+parse real traces, not that a cheating agent would be detected.
 
 ## What it does not catch (yet)
 
 - A canary that the agent sees in a transformed form (base64, paraphrase) unless the read names a sealed
-  reference path. Path matching is a fragment match on decoded, case folded strings: a glob such as
-  `cat ref*/s*` gets past it, and an unrelated path that contains the fragment raises a false alarm.
+  reference path. Path matching looks for the fragment as whole path segments: a glob such as `cat ref*/s*`
+  gets past it, and so does a path built at run time.
 - Hooks: the trace does not list them. Run with `--bare`; `require_bare` itself only checks MCP servers and
   plugins, not that `--bare` was used.
 - Human turns outside bare mode, where Claude Code may add its own user messages.
@@ -194,7 +199,7 @@ an agent eval score, as one small check with no model call in the validity step.
 
 ## Status
 
-v0.3. The offline demo and 124 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
+v0.3.1. The offline demo and 129 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
 real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
 synthetic traces; the validity figures under Live demo come from real runs. Judge agreement on live runs is not
 measured yet (`docs/LIVE_DEMO.md`).
