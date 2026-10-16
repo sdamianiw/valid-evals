@@ -11,6 +11,7 @@ Event order, types and the fields validity uses are untouched.
 | `claude_2_1_301_read_canary.jsonl` | Haiku, `--allowedTools Read`, reads a file holding a canary | the prompt is not echoed as a `user` event; tool results arrive as main thread `user` events with `parent_tool_use_id: null`; unknown event types (`active_goal`, `autocompact_state`, system `task_summary`) and a system event after `result` |
 | `claude_2_1_301_max_turns.jsonl` | Haiku, `--tools Read,Edit --max-turns 1` | `result` with `subtype: error_max_turns`, `is_error: true`, `terminal_reason: max_turns` |
 | `claude_2_1_301_judge_json_schema.json` | judge call: case on stdin, `claude -p PROMPT --model claude-haiku-5-5 --tools "" --output-format json --json-schema '{verdict: pass or fail}'` | one line JSON; stdin is read with the prompt; `structured_output: {"verdict": "pass"}`; `total_cost_usd: 0.0010066` |
+| `claude_2_1_301_subagent.jsonl` | Haiku, `--tools Task,Read`, one subagent | the subagent prompt is a `user` text event with `parent_tool_use_id` set (not a human turn); subagent messages carry their own model; the tool is named `Agent` in `tool_use` although the flag says `Task`; a `thinking` block |
 | `codex_0_163_0_auth_error.jsonl` | `codex exec --json --ephemeral -s read-only`, no credentials (Codex CLI 0.163.0) | `thread.started`, `turn.started`, top level `error` events for retries, an `error` item, then `turn.failed`; no event names the model |
 
 Successful Codex traces in the tests are synthetic, built from the event and item types in the Codex TypeScript

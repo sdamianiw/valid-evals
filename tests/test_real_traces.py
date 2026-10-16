@@ -71,6 +71,16 @@ class TestRealClaudeTraces(unittest.TestCase):
         self.assertEqual(v.cause, "run_error")
         self.assertIn("max_turns", v.details["run_error"])
 
+    def test_real_subagent_run_is_valid_and_its_prompt_is_not_human(self):
+        text = (FIX / "claude_2_1_301_subagent.jsonl").read_text()
+        v = validity.check(text, manifest(allowed_models=["claude-haiku-5-5"], allowed_tools=["Agent", "Read"]))
+        self.assertTrue(v.valid, v.details)
+
+    def test_real_subagent_tool_is_named_agent_not_task(self):
+        text = (FIX / "claude_2_1_301_subagent.jsonl").read_text()
+        v = validity.check(text, manifest(allowed_models=["claude-haiku-5-5"], allowed_tools=["Task", "Read"]))
+        self.assertEqual(v.details.get("tool_not_allowed"), ["Agent"])
+
     def test_real_claude_judge_output_is_read(self):
         from valid_evals import jury
         out = FIX / "claude_2_1_301_judge_json_schema.json"

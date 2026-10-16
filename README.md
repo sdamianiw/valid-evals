@@ -80,7 +80,7 @@ Run the commands from the repo root, or set `PYTHONPATH` to it.
 | `min_valid_cases` | yes | fewer counted cases and the decision is refused |
 | `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentences printed for each result |
 | `allowed_models` | yes | model ids the trace must report; an alias matches its dated snapshots, a dated id only itself |
-| `allowed_tools` | yes | tool names the agent may call (Codex: see below) |
+| `allowed_tools` | yes | tool names as the trace shows them (Claude Code 2.1.301 names `--tools Task` as `Agent`; Codex: see below) |
 | `canaries` | yes | at least one string planted in every reference file |
 | `require_bare` | yes | `true`: MCP servers or plugins other than the CLI's builtin ones make the run invalid |
 | `judges` | yes | two judges, different names and vendors, each `{"name", "vendor", "cmd": [...]}` |
@@ -191,7 +191,7 @@ an agent eval score, as one small check with no model call in the validity step.
 
 ## Status
 
-v0.3. The offline demo and 119 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
+v0.3. The offline demo and 121 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
 real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
 synthetic traces; figures from live runs will be added once measured with `docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
 naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
