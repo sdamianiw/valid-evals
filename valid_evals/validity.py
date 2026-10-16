@@ -1,5 +1,5 @@
-"""Decide whether one agent run may count, from its `claude -p --output-format stream-json --verbose` trace.
-Pure Python, no model calls. One cause is reported by fixed priority; every finding is kept in details."""
+"""Decide whether one agent run may count, from its `claude -p --output-format stream-json --verbose` or
+`codex exec --json` trace. An unknown trace shape is a run_error. Pure Python, no model calls. One cause is reported by fixed priority; every finding is kept in details."""
 
 from __future__ import annotations
 
@@ -7,7 +7,10 @@ import json
 import re
 from dataclasses import dataclass, field
 
-PRIORITY = ("run_error", "isolation_breach", "model_mismatch", "reference_leak", "human_turn", "tool_not_allowed")
+from valid_evals import codex
+
+PRIORITY = ("run_error", "isolation_breach", "model_mismatch", "model_unverified", "reference_leak", "human_turn",
+            "tool_not_allowed")
 _DATED = re.compile(r"-\d{8}$")
 
 
@@ -67,6 +70,19 @@ def check(text: str, manifest: dict) -> Validity:
     def add(cause, info):
         found.setdefault(cause, []).append(info)
 
+    for canary in manifest.get("canaries", []):
+        if canary and canary in text:
+            add("reference_leak", canary)
+
+    if codex.is_codex(events):
+        codex.findings(events, manifest, add)
+    else:
+        _claude_findings(events, manifest, add)
+    cause = next((c for c in PRIORITY if c in found), None)
+    return Validity(valid=cause is None, cause=cause, details=found)
+
+
+def _claude_findings(events: list[dict], manifest: dict, add) -> None:
     results = [e for e in events if e.get("type") == "result"]
     if not results:
         add("run_error", "no result event")
@@ -85,10 +101,6 @@ def check(text: str, manifest: dict) -> Validity:
         if not _model_ok(init.get("model", ""), allowed_models):
             add("model_mismatch", {"init": init.get("model")})
 
-    for canary in manifest.get("canaries", []):
-        if canary and canary in text:
-            add("reference_leak", canary)
-
     # claude -p does not echo the prompt; when a runner does, it comes before the first assistant message
     prompt_slot = True
     for ev in events:
@@ -106,6 +118,3 @@ def check(text: str, manifest: dict) -> Validity:
                 prompt_slot = False
             else:
                 add("human_turn", "user text turn after the first prompt")
-
-    cause = next((c for c in PRIORITY if c in found), None)
-    return Validity(valid=cause is None, cause=cause, details=found)

@@ -1,4 +1,4 @@
-# valid-evals SPEC v0.1
+# valid-evals SPEC v0.2
 
 ## Goal
 An agent eval can pass for the wrong reasons: the run used another model, read the answer key, got help from a
@@ -15,10 +15,13 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
 1. `seal`: canonical JSON of the manifest, then sha256. `seal` writes `manifest.lock`. Every later step verifies
    the hash and stops on mismatch. The manifest holds: metric, comparator, threshold, min_valid_cases, the two
    outcome sentences, allowed_models, allowed_tools, canaries, require_bare, and the judges.
-2. `validity`: reads a `claude -p --output-format stream-json --verbose` trace. It returns VALID, or INVALID with
-   exactly one cause, picked by a fixed priority:
-   run_error > isolation_breach > model_mismatch > reference_leak > human_turn > tool_not_allowed.
-   All findings stay in `details`.
+2. `validity`: reads a `claude -p --output-format stream-json --verbose` trace or a `codex exec --json` trace
+   (`codex.py`), told apart by shape; any other shape is a run_error. It returns VALID, or INVALID with exactly one
+   cause, picked by a fixed priority:
+   run_error > isolation_breach > model_mismatch > model_unverified > reference_leak > human_turn > tool_not_allowed.
+   All findings stay in `details`. Codex traces name no model, so they are model_unverified unless the sealed
+   manifest sets `trust_runner_model: true`. Codex tools are named by item type (`command_execution`,
+   `file_change`, `web_search`, `mcp:<server>/<tool>`).
 3. `jury`: two judge commands from two different vendors. Each reads the case on stdin and prints
    `{"verdict": "pass"|"fail"}`. Both pass gives PASS; both fail gives FAIL; any other result gives DISAGREE,
    which goes to a queue for a human. Anything that does not parse is JUDGE_ERROR and does not count.
@@ -42,7 +45,9 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 7 | One judge's bias | two vendors that must agree; vendors must differ at seal time |
 | 8 | Judge output drift or garbage | strict JSON parse, JUDGE_ERROR excluded and counted |
 | 9 | Tiny sample passes by luck | min_valid_cases |
-| 10 | stream-json format changes | parser tolerant to unknown events, strict on the fields it uses; fixtures pin the format |
+| 10 | stream-json format changes | parser tolerant to unknown events, strict on the fields it uses; redacted real traces pin the format (tests/fixtures) |
+| 11 | Runner cannot prove the model (Codex) | model_unverified, unless the sealed rule says to trust the runner |
+| 12 | A prompt added mid run (Codex resume) | more than one turn.started is a human_turn |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs
