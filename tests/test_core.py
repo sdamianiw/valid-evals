@@ -33,7 +33,9 @@ def manifest(**over):
 def trace(model="claude-sonnet-5-5", events=(), mcp=(), plugins=(), result=True, is_error=False):
     out = [{"type": "system", "subtype": "init", "model": model, "tools": ["Read", "Grep"],
             "mcp_servers": list(mcp), "plugins": list(plugins), "session_id": "s1"},
-           {"type": "user", "parent_tool_use_id": None, "message": {"role": "user", "content": "Solve task 1."}}]
+           {"type": "user", "parent_tool_use_id": None, "message": {"role": "user", "content": "Solve task 1."}},
+           {"type": "assistant", "parent_tool_use_id": None,
+            "message": {"model": model, "content": [{"type": "text", "text": "Looking at the task."}]}}]
     out += list(events)
     if result:
         out.append({"type": "result", "subtype": "error_during_execution" if is_error else "success",

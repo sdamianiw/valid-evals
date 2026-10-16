@@ -25,18 +25,16 @@ def findings(events: list[dict], manifest: dict, add) -> None:
     elif not turns or turns[-1] != "turn.completed":
         add("run_error", "no turn.completed after the last turn.started")
 
-    if not manifest.get("trust_runner_model"):
+    if manifest.get("trust_runner_model") is not True:
         add("model_unverified", "codex exec --json names no model")
 
     if turns.count("turn.started") > 1:
         add("human_turn", f"{turns.count('turn.started')} turns: a prompt was added after the first")
 
-    seen = set()
-    for ev in events:
+    for ev in events:  # a tool counts as soon as it is started, whatever happens to it later
         it = ev.get("item")
-        if ev.get("type") != "item.completed" or not isinstance(it, dict) or it.get("id") in seen:
+        if ev.get("type") not in ("item.started", "item.updated", "item.completed") or not isinstance(it, dict):
             continue
-        seen.add(it.get("id"))
         kind = it.get("type")
         if kind in NOT_TOOLS:
             continue

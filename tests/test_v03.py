@@ -106,7 +106,7 @@ class TestBoundArtifacts(unittest.TestCase):
         return code, out.getvalue()
 
     def test_run_records_hashes_and_is_provisional_when_calibration_is_sealed(self):
-        p = sealed(self.d, calibration={"min_kappa": 0.6, "min_labels": 2})
+        p = sealed(self.d, calibration={"min_kappa": 0.6, "min_labels": 2, "max_judge_error_rate": 0.5})
         code, out = self.run_cli("run", p, self.cases)
         rows = [json.loads(x) for x in (self.cases / "results.jsonl").read_text().splitlines()]
         self.assertTrue(all(len(r["trace_sha256"]) == 64 for r in rows))
@@ -120,7 +120,7 @@ class TestBoundArtifacts(unittest.TestCase):
         self.assertNotIn("PROVISIONAL", out)
 
     def test_calibrate_gives_the_final_decision_with_counts_and_hash(self):
-        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2},
+        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2, "max_judge_error_rate": 0.5},
                    judges=[{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, FAKE_JUDGE, "pass"]},
                            {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass"]}])
         r = [{"case": f"c{i}", "valid": True, "verdict": v, "votes": {"a": a, "b": b}}
@@ -132,7 +132,7 @@ class TestBoundArtifacts(unittest.TestCase):
         self.assertFalse(rep["final"])  # pass rate 2/3 under the sealed 0.8 bar
 
     def test_cli_calibrate_exit_follows_the_final_decision(self):
-        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2}, min_valid_cases=2)
+        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2, "max_judge_error_rate": 0.5}, min_valid_cases=2)
         r = [{"case": f"c{i}", "valid": True, "verdict": v, "votes": {"a": a, "b": b}}
              for i, (v, a, b) in enumerate([("PASS", "pass", "pass"), ("FAIL", "fail", "fail")])]
         (self.cases / "results.jsonl").write_text("".join(json.dumps(x) + "\n" for x in r))

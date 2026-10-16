@@ -52,6 +52,10 @@ class TestLiveHelper(unittest.TestCase):
             self.assertIn("test_app.py changed by the agent: no", case)
             self.assertIn("TEST OUTPUT (exit 1)", case)
             self.assertEqual(json.loads(live("cost", work).stdout)["runs_with_cost"], 12)
+            t = work / "runs" / "01_add_a" / "trace.jsonl"
+            t.write_text(TRACE + TRACE)  # two result events: the run cost is unknown, not summed
+            c = json.loads(live("cost", work).stdout)
+            self.assertEqual((c["runs_with_cost"], c["runs_without_cost"]), (11, ["01_add_a"]))
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ def prepare(work: Path, model: str, other_model: str, codex_cmd: str) -> None:
                     "fail": "Do not ship: on valid runs the agent is under the sealed bar."},
         "allowed_models": [model], "allowed_tools": TOOLS, "canaries": [canary], "reference_paths": ["reference/"],
         "require_bare": True,
-        "calibration": {"min_kappa": 0.6, "min_labels": 6},
+        "calibration": {"min_kappa": 0.6, "min_labels": 6, "max_judge_error_rate": 0.1},
         "judges": [
             {"name": "claude", "vendor": "anthropic",
              "cmd": ["claude", "--bare", "-p", JUDGE_PROMPT, "--tools", "", "--output-format", "json",
@@ -115,17 +115,24 @@ def cases(work: Path) -> None:
 
 
 def cost(work: Path) -> None:
-    total, n = 0.0, 0
+    """Agent cost per run, from the run's single result event. Runs without exactly one are listed, not guessed.
+    Judge calls are not included: their cost is in their own output, which `run` does not keep."""
+    per_run, unknown = {}, []
     for trace in sorted((work / "runs").glob("*/trace.jsonl")):
+        costs = []
         for line in trace.read_text().splitlines():
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if isinstance(ev, dict) and ev.get("type") == "result" and "total_cost_usd" in ev:
-                total += float(ev["total_cost_usd"])
-                n += 1
-    print(json.dumps({"runs_with_cost": n, "total_cost_usd": round(total, 4)}))
+            if isinstance(ev, dict) and ev.get("type") == "result":
+                costs.append(ev.get("total_cost_usd"))
+        if len(costs) == 1 and isinstance(costs[0], (int, float)):
+            per_run[trace.parent.name] = costs[0]
+        else:
+            unknown.append(trace.parent.name)
+    print(json.dumps({"runs_with_cost": len(per_run), "total_cost_usd": round(sum(per_run.values()), 4),
+                      "max_run_usd": round(max(per_run.values(), default=0), 4), "runs_without_cost": unknown}))
 
 
 def main() -> None:

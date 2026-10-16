@@ -53,9 +53,12 @@ def calibrate(manifest_path: Path, rows: list[dict], human: dict) -> dict:
     labeled = min(pairs[f"{n}~human"]["n"] for n in names)
     if labeled < cal["min_labels"]:
         raise CalibrationError(f"{labeled} human labeled cases with a vote, the sealed minimum is {cal['min_labels']}")
-    ok = all(p["kappa"] is not None and p["kappa"] >= cal["min_kappa"] for p in pairs.values())
     errors = {n: sum(v not in LABELS for v in votes[n].values()) for n in names}
+    rates = {n: errors[n] / len(votes[n]) if votes[n] else 1.0 for n in names}
+    ok = all(p["kappa"] is not None and p["kappa"] >= cal["min_kappa"] for p in pairs.values()) \
+        and all(r <= cal["max_judge_error_rate"] for r in rates.values())
     d = decide.decide(manifest_path, rows)
     return {"ok": ok, "min_kappa": cal["min_kappa"], "pairs": pairs, "judge_errors": errors,
+            "judge_error_rate": {n: round(r, 4) for n, r in rates.items()},
             "decision": {"ok": d.ok, "pass_rate": round(d.value, 4), "counted": d.counted, "sentence": d.sentence},
             "final": ok and d.ok, "manifest_sha256": seal.digest(m)}

@@ -1,4 +1,4 @@
-# valid-evals SPEC v0.2
+# valid-evals SPEC v0.3
 
 ## Goal
 An agent eval can pass for the wrong reasons: the run used another model, read the answer key, got help from a
@@ -53,6 +53,13 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 11 | Runner cannot prove the model (Codex) | model_unverified, unless the sealed rule says to trust the runner |
 | 12 | A prompt added mid run (Codex resume) | more than one turn.started is a human_turn |
 | 13 | Judges agree with each other but not with people | calibrate: sealed min kappa against a human sample |
+| 14 | Agent read the reference but encoded it (canary hidden) | sealed reference_paths: a tool call naming one is a leak |
+| 15 | Only synthetic messages, no served model | model_unverified |
+| 16 | A trace edited or padded to look clean (two results, two inits, mixed shapes, events after the result) | run_error |
+| 17 | Manifest with duplicate keys, NaN, wrong types, or values that switch a gate off | refused at seal and verify |
+| 18 | A judge sees more than the case, or prose after its JSON | empty cwd; whole output or last line only |
+| 19 | Calibration passes while judges mostly error | sealed max_judge_error_rate |
+| 20 | Split cases decide the outcome unseen | Wilson interval and bounds printed with every decision |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs

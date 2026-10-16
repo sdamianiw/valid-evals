@@ -40,8 +40,12 @@ def _events(text: str) -> list[dict]:
 SYNTHETIC = "<synthetic>"
 
 
-def _model_ok(model: str, allowed: list[str]) -> bool:
-    return model == SYNTHETIC or _DATED.sub("", model or "") in allowed
+def _base(model: str) -> str:
+    return _DATED.sub("", model)
+
+
+def _model_ok(model, allowed: list[str]) -> bool:
+    return isinstance(model, str) and _base(model) in {_base(a) for a in allowed}
 
 
 def reference_paths(text: str, manifest: dict, add) -> None:
@@ -51,6 +55,11 @@ def reference_paths(text: str, manifest: dict, add) -> None:
             add("reference_leak", {"path": path})
 
 
+def _canary_forms(canary: str) -> set[str]:
+    # traces are JSON: quotes, backslashes, tabs and non ASCII may be stored escaped
+    return {canary, json.dumps(canary)[1:-1], json.dumps(canary, ensure_ascii=False)[1:-1]}
+
+
 def _builtin(plugin) -> bool:
     # plugins shipped inside the CLI are listed even under --bare (seen in 2.1.301); host plugins are not
     return isinstance(plugin, dict) and plugin.get("path") == "builtin" \
@@ -58,16 +67,18 @@ def _builtin(plugin) -> bool:
 
 
 def _content(ev: dict):
-    return (ev.get("message") or {}).get("content")
+    msg = ev.get("message")
+    return msg.get("content") if isinstance(msg, dict) else None
 
 
-def _is_human_text(ev: dict) -> bool:
+def _is_human(ev: dict) -> bool:
+    """Main thread user content that is not a tool result: text, images, anything a person could send."""
     content = _content(ev)
     if isinstance(content, str):
         return bool(content.strip())
     if isinstance(content, list):
-        return any(isinstance(b, dict) and b.get("type") == "text" for b in content)
-    return False
+        return any(not (isinstance(b, dict) and b.get("type") == "tool_result") for b in content)
+    return content is not None
 
 
 def check(text: str, manifest: dict) -> Validity:
@@ -75,54 +86,75 @@ def check(text: str, manifest: dict) -> Validity:
     found: dict[str, list] = {}
 
     def add(cause, info):
-        found.setdefault(cause, []).append(info)
+        if info not in found.setdefault(cause, []):
+            found[cause].append(info)
 
     for canary in manifest.get("canaries", []):
-        if canary and canary in text:
+        if any(form in text for form in _canary_forms(canary)):
             add("reference_leak", canary)
 
-    if codex.is_codex(events):
-        codex.findings(events, manifest, add)
-    else:
-        _claude_findings(events, manifest, add)
+    is_claude = any(e.get("type") == "system" and e.get("subtype") == "init" for e in events)
+    try:
+        if is_claude and codex.is_codex(events):
+            add("run_error", "trace mixes Claude and Codex events")
+        elif codex.is_codex(events):
+            codex.findings(events, manifest, add)
+        else:
+            _claude_findings(events, manifest, add)
+    except (AttributeError, TypeError, ValueError) as e:  # a field we use has the wrong type
+        add("run_error", f"malformed trace: {type(e).__name__}")
     cause = next((c for c in PRIORITY if c in found), None)
     return Validity(valid=cause is None, cause=cause, details=found)
 
 
 def _claude_findings(events: list[dict], manifest: dict, add) -> None:
-    results = [e for e in events if e.get("type") == "result"]
-    if not results:
-        add("run_error", "no result event")
-    elif results[-1].get("is_error"):
-        # an API error can end with subtype "success"; terminal_reason names it when present
-        add("run_error", results[-1].get("terminal_reason") or results[-1].get("subtype") or "is_error")
-
-    init = next((e for e in events if e.get("type") == "system" and e.get("subtype") == "init"), None)
-    allowed_models = manifest["allowed_models"]
-    if init is None:
-        add("run_error", "no init event")
+    inits = [e for e in events if e.get("type") == "system" and e.get("subtype") == "init"]
+    results = [i for i, e in enumerate(events) if e.get("type") == "result"]
+    agent = [i for i, e in enumerate(events) if e.get("type") in ("assistant", "user")]
+    if len(inits) != 1:
+        add("run_error", f"{len(inits)} init events")
+    if len(results) != 1:
+        add("run_error", f"{len(results)} result events")
     else:
+        r = events[results[0]]
+        if r.get("subtype") != "success" or r.get("is_error") is not False:
+            # an API error can end with subtype "success"; terminal_reason names it when present
+            add("run_error", r.get("terminal_reason") or r.get("subtype") or "is_error")
+        if agent and agent[-1] > results[0]:
+            add("run_error", "agent events after the result")
+
+    allowed_models = manifest["allowed_models"]
+    if inits:
+        init = inits[0]
         plugins = [p for p in init.get("plugins") or [] if not _builtin(p)]
         if manifest.get("require_bare") and (init.get("mcp_servers") or plugins):
             add("isolation_breach", {"mcp_servers": init.get("mcp_servers"), "plugins": plugins})
-        if not _model_ok(init.get("model", ""), allowed_models):
+        if init.get("model") == SYNTHETIC:
+            add("model_unverified", {"init": SYNTHETIC})
+        elif not _model_ok(init.get("model"), allowed_models):
             add("model_mismatch", {"init": init.get("model")})
 
+    served = False
     # claude -p does not echo the prompt; when a runner does, it comes before the first assistant message
     prompt_slot = True
     for ev in events:
         if ev.get("type") == "assistant":
             prompt_slot = False
-            msg_model = (ev.get("message") or {}).get("model")
-            if msg_model and not _model_ok(msg_model, allowed_models):
-                add("model_mismatch", {"message": msg_model})
+            msg = ev.get("message") if isinstance(ev.get("message"), dict) else {}
+            msg_model = msg.get("model")
+            if msg_model and msg_model != SYNTHETIC:
+                served = True
+                if not _model_ok(msg_model, allowed_models):
+                    add("model_mismatch", {"message": msg_model})
             for block in _content(ev) or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     if block.get("name") not in manifest["allowed_tools"]:
                         add("tool_not_allowed", block.get("name"))
                     reference_paths(json.dumps(block.get("input"), ensure_ascii=False), manifest, add)
-        elif ev.get("type") == "user" and ev.get("parent_tool_use_id") is None and _is_human_text(ev):
+        elif ev.get("type") == "user" and not ev.get("parent_tool_use_id") and _is_human(ev):
             if prompt_slot:
                 prompt_slot = False
             else:
-                add("human_turn", "user text turn after the first prompt")
+                add("human_turn", "user turn after the first prompt")
+    if not served:
+        add("model_unverified", "no assistant message names a served model")

@@ -26,19 +26,20 @@ def _vote(judge: dict, case_text: str) -> str:
         return "error"
     if proc.returncode != 0:
         return "error"
-    for line in reversed(proc.stdout.strip().splitlines()):
+    out = proc.stdout.strip()
+    try:  # the whole output as one JSON value, or else only its last line: never an earlier line
+        obj = json.loads(out)
+    except json.JSONDecodeError:
         try:
-            obj = json.loads(line)
+            obj = json.loads(out.splitlines()[-1]) if out else None
         except json.JSONDecodeError:
-            continue
-        if not isinstance(obj, dict):
-            continue
-        if obj.get("is_error"):
             return "error"
-        # plain {"verdict": ...}, or claude -p --output-format json --json-schema, which nests it
-        v = obj.get("verdict", (obj.get("structured_output") or {}).get("verdict"))
-        return v if v in ("pass", "fail") else "error"
-    return "error"
+    if not isinstance(obj, dict) or obj.get("is_error"):
+        return "error"
+    # plain {"verdict": ...}, or claude -p --output-format json --json-schema, which nests it
+    nested = obj.get("structured_output")
+    v = obj.get("verdict", nested.get("verdict") if isinstance(nested, dict) else None)
+    return v if v in ("pass", "fail") else "error"
 
 
 def judge(case_text: str, judges: list[dict]) -> JuryResult:

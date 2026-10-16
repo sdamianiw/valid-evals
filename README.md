@@ -49,7 +49,9 @@ The naive number says ship. The valid number says do not.
 1. Write `manifest.json` (see `examples/demo/run_offline.py` for every field) and seal it:
    `python3 -m valid_evals seal manifest.json`. Commit `manifest.lock` before you run anything; git history is
    your timestamp.
-2. Put a canary string inside every reference or answer file the agent must not read.
+2. Put a canary string inside every reference or answer file the agent must not read (the manifest needs at
+   least one), and list the reference locations in `reference_paths`: a tool call that names one is a leak even
+   when the agent transforms what it reads so the canary never shows.
 3. Run your agent in bare mode and keep the trace:
    `claude --bare -p "$TASK" --model claude-sonnet-5-5 --allowedTools "Read,Grep,Edit" --output-format stream-json --verbose > cases/01/trace.jsonl`
    or `codex exec --json --ephemeral "$TASK" > cases/01/trace.jsonl`. The trace shape is detected; any other
@@ -84,12 +86,17 @@ during the run and counts as a human turn.
 
 ### Calibrate the judges
 
-Add `"calibration": {"min_kappa": 0.6, "min_labels": 20}` to the manifest before sealing. After `run`, label a
-sample yourself as `{"case": "pass"|"fail"}` and run
-`python3 -m valid_evals calibrate manifest.json cases/ labels.json`. It prints n, raw agreement and Cohen's
-kappa for judge vs judge and each judge vs you, from the votes `run` already saved. Exit 0 when every kappa meets
-the sealed minimum, 1 when one does not, 2 when it refuses (no sealed minimum, too few labels, a bad label).
-A kappa is undefined when every label is the same; that fails.
+Add `"calibration": {"min_kappa": 0.6, "min_labels": 20, "max_judge_error_rate": 0.1}` to the manifest before
+sealing. `run` then prints its decision as PROVISIONAL. Label a sample yourself as `{"case": "pass"|"fail"}`
+without looking at the votes, and run `python3 -m valid_evals calibrate manifest.json cases/ labels.json`. It
+prints n, the 2x2 counts, raw agreement and Cohen's kappa for judge vs judge and each judge vs you, each judge's
+error rate, and the decision, from the votes `run` saved (with their sha256). Exit 0 only when the jury is
+calibrated and the sealed rule passes, 1 when either does not, 2 when it refuses (no sealed calibration, too few
+labels, a bad label). A kappa is undefined when every label is the same; that fails. Your labels never change
+the decision: they only say whether the jury can be trusted.
+
+Every decision also prints a Wilson 95% interval and the pass rate if every split case had been a fail, or a
+pass. If that range crosses the bar, the split cases decide the outcome; read them.
 
 ## Live demo
 
@@ -104,15 +111,15 @@ canary, a planted leak and a planted model switch. It reports cost, invalid runs
   the CLI and are listed even under `--bare`, so they are allowed.
 - The model of a Codex run, unless you trust the runner; and Codex config, `AGENTS.md` or hooks, since only MCP
   calls that actually happen are visible in the trace.
-- A run whose decision passed without `calibrate`: `run` does not require it yet.
-- Edits to `results.jsonl` between `run` and `calibrate`: the votes are not hashed yet.
+- A decision taken from `run` alone when no calibration block was sealed. With one, `run` is only provisional.
+- Edits to `results.jsonl` between `run` and `calibrate` are not refused: both print its sha256, compare them.
 - Judge agreement is only as good as the judges, and kappa on a few labels is noise. Report n with it.
 
-See `docs/PREMORTEM_v0.2.md` for the full list and what is planned.
+See `docs/PREMORTEM_v0.2.md` and `docs/REDTEAM_v0.3.md` for the full list and what is planned.
 
 ## Status
 
-v0.2. The offline demo and 62 tests pass. Trace parsing is pinned by redacted real traces from Claude Code
+v0.3. The offline demo and 99 tests pass. Trace parsing is pinned by redacted real traces from Claude Code
 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from synthetic traces; figures
 from live runs will be added once measured with `docs/LIVE_DEMO.md`.
 

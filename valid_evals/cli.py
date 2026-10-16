@@ -92,6 +92,9 @@ def main(argv=None) -> int:
     except (seal.SealError, decide.DecisionError, calibrate.CalibrationError, OSError, json.JSONDecodeError, KeyError) as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 2
+    except Exception as e:  # anything unexpected refuses; it never reads as "the rule failed"
+        print(f"REFUSED: unexpected {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

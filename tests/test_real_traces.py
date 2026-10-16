@@ -65,6 +65,12 @@ class TestRealClaudeTraces(unittest.TestCase):
         self.assertEqual(v.cause, "run_error")
         self.assertEqual(v.details["run_error"], ["api_error"])
 
+    def test_real_max_turns_stop_is_run_error(self):
+        text = (FIX / "claude_2_1_301_max_turns.jsonl").read_text()
+        v = validity.check(text, manifest(allowed_tools=["Read", "Edit"]))
+        self.assertEqual(v.cause, "run_error")
+        self.assertIn("max_turns", v.details["run_error"])
+
     def test_synthetic_error_message_is_not_a_model_mismatch(self):
         v = validity.check(BARE_AUTH_ERROR, manifest(allowed_models=["claude-opus-5-5"]))
         self.assertNotIn("model_mismatch", v.details)

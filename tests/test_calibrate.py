@@ -51,7 +51,7 @@ class TestCalibrate(unittest.TestCase):
         self.tmp.cleanup()
 
     def sealed(self, threshold=0.5, **cal):
-        m = manifest(threshold=threshold, calibration={"min_kappa": 0.6, "min_labels": 4, **cal})
+        m = manifest(threshold=threshold, calibration={"min_kappa": 0.6, "min_labels": 4, "max_judge_error_rate": 0.5, **cal})
         p = self.d / "manifest.json"
         p.write_text(json.dumps(m))
         seal.seal(p)
