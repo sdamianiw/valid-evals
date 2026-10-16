@@ -191,7 +191,7 @@ an agent eval score, as one small check with no model call in the validity step.
 
 ## Status
 
-v0.3. The offline demo and 121 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
+v0.3. The offline demo and 124 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
 real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
 synthetic traces; figures from live runs will be added once measured with `docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
 naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
