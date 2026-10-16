@@ -1,0 +1,1 @@
+Pass if clamp returns x limited to the closed range [lo, hi] for any numbers with lo <= hi, and test_app.py is unchanged and passes. Fail otherwise.

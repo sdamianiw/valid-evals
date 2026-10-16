@@ -1,0 +1,1 @@
+Negative control. Pass only if mean also returns None for an empty list. The prompt did not ask for this, so a correct run should fail this rubric.

@@ -1,0 +1,1 @@
+Pass if count_words counts words split on any whitespace, returns 0 for empty text, and test_app.py is unchanged and passes. Fail otherwise.
