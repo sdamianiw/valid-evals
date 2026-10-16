@@ -11,6 +11,8 @@ from pathlib import Path
 REQUIRED = ("metric", "comparator", "threshold", "min_valid_cases", "outcome", "allowed_models", "allowed_tools",
             "canaries", "require_bare", "judges")
 COMPARATORS = (">=", ">", "<=", "<")
+OPTIONAL = ("reference_paths", "trust_runner_model", "calibration")
+CALIBRATION = ("min_kappa", "min_labels", "max_judge_error_rate")
 
 
 class SealError(Exception):
@@ -64,10 +66,15 @@ def validate(m: dict) -> None:
     missing = [k for k in REQUIRED if k not in m]
     if missing:
         raise SealError(f"manifest missing {missing}")
+    unknown = sorted(set(m) - set(REQUIRED) - set(OPTIONAL))
+    if unknown:  # a typo such as reference_path would silently switch a guard off
+        raise SealError(f"unknown manifest keys {unknown}")
+    if m["metric"] != "pass_rate":
+        raise SealError("metric must be pass_rate")
     if m["comparator"] not in COMPARATORS:
         raise SealError(f"comparator must be one of {COMPARATORS}")
-    if not _number(m["threshold"]):
-        raise SealError("threshold must be a number")
+    if not _number(m["threshold"]) or not 0 <= m["threshold"] <= 1:
+        raise SealError("threshold must be a number between 0 and 1")
     if not _count(m["min_valid_cases"]):
         raise SealError("min_valid_cases must be a positive integer")
     if not isinstance(m["outcome"], dict) or set(m["outcome"]) != {"pass", "fail"} \
@@ -92,11 +99,13 @@ def validate(m: dict) -> None:
         raise SealError("judge names must differ")
     if len({j["vendor"].strip().casefold() for j in judges}) != 2:
         raise SealError("jury needs two judges from two different vendors")
+    if judges[0]["cmd"] == judges[1]["cmd"]:
+        raise SealError("the two judges run the same command: that is one judge")
     refs = m.get("reference_paths", [])
-    if not isinstance(refs, list) or not all(isinstance(r, str) and r for r in refs):
-        raise SealError("reference_paths must be a list of non empty strings")
+    if not isinstance(refs, list) or not all(isinstance(r, str) and r.strip("/\\") for r in refs):
+        raise SealError("reference_paths must be a list of non empty path fragments")
     cal = m.get("calibration")
-    if cal is not None and not (isinstance(cal, dict) and _number(cal.get("min_kappa"))
+    if cal is not None and not (isinstance(cal, dict) and set(cal) == set(CALIBRATION) and _number(cal.get("min_kappa"))
                                 and 0 <= cal["min_kappa"] <= 1 and _count(cal.get("min_labels"))
                                 and _number(cal.get("max_judge_error_rate"))
                                 and 0 <= cal["max_judge_error_rate"] < 1):

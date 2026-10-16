@@ -34,7 +34,8 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     rows, queue = [], []
     for case in sorted(p for p in cases_dir.iterdir() if p.is_dir()):
         # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
-        row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl"}
+        row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl",
+               "manifest_sha256": seal.digest(m)}
         if row["valid"]:
             j = jury.judge((case / "case.txt").read_text(encoding="utf-8"), m["judges"])
             row.update(verdict=j.verdict, votes=j.votes)
@@ -85,10 +86,14 @@ def main(argv=None) -> int:
         if a.cmd == "calibrate":
             raw = (a.cases_dir / "results.jsonl").read_bytes()
             rows = [json.loads(x) for x in raw.decode("utf-8").splitlines() if x.strip()]
+            calibrate.verify_rows(a.manifest, rows, a.cases_dir)
             report = calibrate.calibrate(a.manifest, rows, json.loads(a.labels.read_text(encoding="utf-8")))
             report["results_sha256"] = hashlib.sha256(raw).hexdigest()
             print(json.dumps(report))
-            print(report["decision"]["sentence"] if report["ok"] else "Jury not calibrated: no decision.")
+            if not report["ok"]:
+                print("REFUSED: jury not calibrated, so there is no decision", file=sys.stderr)
+                return 2
+            print(report["decision"]["sentence"])
             return 0 if report["final"] else 1
         return cmd_run(a.manifest, a.cases_dir)
     except (seal.SealError, decide.DecisionError, calibrate.CalibrationError, OSError, json.JSONDecodeError, KeyError) as e:

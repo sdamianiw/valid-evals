@@ -17,6 +17,13 @@ class JuryResult:
     votes: dict = field(default_factory=dict)
 
 
+def _strict(pairs):
+    keys = [k for k, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate keys")
+    return dict(pairs)
+
+
 def _vote(judge: dict, case_text: str) -> str:
     try:
         with tempfile.TemporaryDirectory() as empty:  # a judge sees the case on stdin and nothing else
@@ -28,12 +35,14 @@ def _vote(judge: dict, case_text: str) -> str:
         return "error"
     out = proc.stdout.strip()
     try:  # the whole output as one JSON value, or else only its last line: never an earlier line
-        obj = json.loads(out)
+        obj = json.loads(out, object_pairs_hook=_strict)
     except json.JSONDecodeError:
         try:
-            obj = json.loads(out.splitlines()[-1]) if out else None
-        except json.JSONDecodeError:
+            obj = json.loads(out.splitlines()[-1], object_pairs_hook=_strict) if out else None
+        except (json.JSONDecodeError, ValueError):
             return "error"
+    except ValueError:  # duplicate keys: two answers in one object
+        return "error"
     if not isinstance(obj, dict) or obj.get("is_error"):
         return "error"
     # plain {"verdict": ...}, or claude -p --output-format json --json-schema, which nests it
@@ -42,8 +51,8 @@ def _vote(judge: dict, case_text: str) -> str:
     return v if v in ("pass", "fail") else "error"
 
 
-def judge(case_text: str, judges: list[dict]) -> JuryResult:
-    votes = {j["name"]: _vote(j, case_text) for j in judges}
+def combine(votes: dict) -> str:
+    """The jury rule, also used by calibrate to check that a stored verdict follows from its votes."""
     vals = set(votes.values())
     if "error" in vals:
         verdict = "JUDGE_ERROR"
@@ -53,4 +62,9 @@ def judge(case_text: str, judges: list[dict]) -> JuryResult:
         verdict = "FAIL"
     else:
         verdict = "DISAGREE"
-    return JuryResult(verdict, votes)
+    return verdict
+
+
+def judge(case_text: str, judges: list[dict]) -> JuryResult:
+    votes = {j["name"]: _vote(j, case_text) for j in judges}
+    return JuryResult(combine(votes), votes)

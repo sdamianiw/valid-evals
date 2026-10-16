@@ -21,8 +21,10 @@ class Validity:
     details: dict = field(default_factory=dict)
 
 
-def _events(text: str) -> list[dict]:
-    out = []
+def _events(text: str) -> tuple[list[dict], int]:
+    """Parsed events and the number of lines that are not a JSON object. Unknown event types are fine; a line we
+    cannot read could hide anything, so the caller treats it as a run error."""
+    out, bad = [], 0
     for line in text.splitlines():
         line = line.strip()
         if not line:
@@ -30,34 +32,51 @@ def _events(text: str) -> list[dict]:
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
-            continue  # tolerate partial lines; the fields we need are checked below
+            bad += 1
+            continue
         if isinstance(obj, dict):
             out.append(obj)
-    return out
+        else:
+            bad += 1
+    return out, bad
+
+
+def strings(obj):
+    """Every string value inside a parsed JSON value, decoded, so escapes cannot hide a match."""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from strings(v)
+
+
+def norm_path(s: str) -> str:
+    return s.casefold().replace("\\", "/")
 
 
 # Claude Code tags messages it generates itself (errors, interrupts) with this marker, not a served model
 SYNTHETIC = "<synthetic>"
 
 
-def _base(model: str) -> str:
-    return _DATED.sub("", model)
-
-
 def _model_ok(model, allowed: list[str]) -> bool:
-    return isinstance(model, str) and _base(model) in {_base(a) for a in allowed}
+    """An allowed alias matches its dated snapshots; an allowed dated id matches only itself."""
+    if not isinstance(model, str):
+        return False
+    return any(model == a or (not _DATED.search(a) and _DATED.sub("", model) == a) for a in allowed)
 
 
-def reference_paths(text: str, manifest: dict, add) -> None:
-    """A tool call that names a sealed reference path is a leak, whatever it did with the content."""
+def reference_paths(tool_input, manifest: dict, add) -> None:
+    """A tool call that names a sealed reference path is a leak, whatever it did with the content. Matching is on
+    decoded strings, case folded, with backslashes as slashes and no trailing separator: a plain fragment match,
+    so it errs toward false alarms."""
+    texts = [norm_path(s) for s in strings(tool_input)]
     for path in manifest.get("reference_paths", []):
-        if path in text:
+        frag = norm_path(path).rstrip("/")
+        if any(frag in t for t in texts):
             add("reference_leak", {"path": path})
-
-
-def _canary_forms(canary: str) -> set[str]:
-    # traces are JSON: quotes, backslashes, tabs and non ASCII may be stored escaped
-    return {canary, json.dumps(canary)[1:-1], json.dumps(canary, ensure_ascii=False)[1:-1]}
 
 
 def _builtin(plugin) -> bool:
@@ -82,15 +101,18 @@ def _is_human(ev: dict) -> bool:
 
 
 def check(text: str, manifest: dict) -> Validity:
-    events = _events(text)
+    events, bad = _events(text)
     found: dict[str, list] = {}
 
     def add(cause, info):
         if info not in found.setdefault(cause, []):
             found[cause].append(info)
 
+    if bad:
+        add("run_error", f"{bad} lines are not JSON objects")
+    decoded = [s for e in events for s in strings(e)]
     for canary in manifest.get("canaries", []):
-        if any(form in text for form in _canary_forms(canary)):
+        if canary in text or any(canary in s for s in decoded):
             add("reference_leak", canary)
 
     is_claude = any(e.get("type") == "system" and e.get("subtype") == "init" for e in events)
@@ -113,6 +135,8 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
     agent = [i for i, e in enumerate(events) if e.get("type") in ("assistant", "user")]
     if len(inits) != 1:
         add("run_error", f"{len(inits)} init events")
+    elif agent and events.index(inits[0]) > agent[0]:
+        add("run_error", "init after agent events")
     if len(results) != 1:
         add("run_error", f"{len(results)} result events")
     else:
@@ -150,7 +174,7 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     if block.get("name") not in manifest["allowed_tools"]:
                         add("tool_not_allowed", block.get("name"))
-                    reference_paths(json.dumps(block.get("input"), ensure_ascii=False), manifest, add)
+                    reference_paths(block.get("input"), manifest, add)
         elif ev.get("type") == "user" and not ev.get("parent_tool_use_id") and _is_human(ev):
             if prompt_slot:
                 prompt_slot = False

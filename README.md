@@ -43,7 +43,7 @@ naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
 06_wrong_model INVALID  model_mismatch
 07_read_answer INVALID  reference_leak
 08_human_hint  INVALID  human_turn
-{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
+{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "05d9a8fd50cab939be19479ecae35737c465446e1a6d2a26a14228a707613047"}
 Do not ship: on valid runs the agent is under the sealed bar.
 
 after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused
@@ -79,21 +79,24 @@ Run the commands from the repo root, or set `PYTHONPATH` to it.
 | `comparator`, `threshold` | yes | for example `>=` and `0.8` |
 | `min_valid_cases` | yes | fewer counted cases and the decision is refused |
 | `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentences printed for each result |
-| `allowed_models` | yes | model ids the trace must report; a dated id matches its alias |
+| `allowed_models` | yes | model ids the trace must report; an alias matches its dated snapshots, a dated id only itself |
 | `allowed_tools` | yes | tool names the agent may call (Codex: see below) |
 | `canaries` | yes | at least one string planted in every reference file |
 | `require_bare` | yes | `true`: MCP servers or plugins other than the CLI's builtin ones make the run invalid |
 | `judges` | yes | two judges, different names and vendors, each `{"name", "vendor", "cmd": [...]}` |
-| `reference_paths` | no | path fragments; a tool call that names one is a leak |
+| `reference_paths` | no | path fragments; a tool call that names one is a leak (case folded, `\` read as `/`) |
 | `trust_runner_model` | no | `true` accepts Codex runs whose trace names no model |
 | `calibration` | no | `{"min_kappa", "min_labels", "max_judge_error_rate"}`; makes `run` provisional until `calibrate` passes |
+
+Unknown keys are refused, so a typo cannot switch a guard off. The threshold must be between 0 and 1, and the two
+judges must differ in name, vendor and command.
 
 ### Exit codes
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
 | `run` | sealed rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, too few counted cases, bad input |
-| `calibrate` | jury calibrated and rule passed | either did not | refused: no calibration sealed, too few labels, bad labels |
+| `calibrate` | jury calibrated and rule passed | jury calibrated, rule failed | refused: jury not calibrated, no calibration sealed, too few or bad labels, `results.jsonl` not from this rule and these traces |
 | `check` | every trace valid | any trace invalid | refused |
 
 ### Judges
@@ -135,7 +138,9 @@ and Cohen's kappa for judge vs judge and each judge vs you, each judge's error r
 votes `run` saved. A kappa is undefined when every label is the same; that fails. Your labels never change the
 decision: they only say whether the jury can be trusted.
 
-Both `run` and `calibrate` print the sha256 of `results.jsonl`; if they differ, the votes changed in between.
+`calibrate` does not trust `results.jsonl`: every row must carry this manifest's hash, every case folder must have
+its row, each trace is hashed and checked again, and each verdict must follow from its votes. Both commands print
+the sha256 of `results.jsonl`.
 Every decision also prints a Wilson 95% interval and the pass rate if every split case had been a fail, or a
 pass. If that range crosses the bar, the split cases decide the outcome; read them.
 
@@ -162,8 +167,8 @@ caught and judge agreement. No live figures are published yet.
 ## What it does not catch (yet)
 
 - A canary that the agent sees in a transformed form (base64, paraphrase) unless the read names a sealed
-  reference path. Path matching is a plain substring: a glob such as `cat ref*/s*` gets past it, and an
-  unrelated path that contains the fragment raises a false alarm.
+  reference path. Path matching is a fragment match on decoded, case folded strings: a glob such as
+  `cat ref*/s*` gets past it, and an unrelated path that contains the fragment raises a false alarm.
 - Hooks: the trace does not list them. Run with `--bare`; `require_bare` itself only checks MCP servers and
   plugins, not that `--bare` was used.
 - Human turns outside bare mode, where Claude Code may add its own user messages.
@@ -186,7 +191,7 @@ an agent eval score, as one small check with no model call in the validity step.
 
 ## Status
 
-v0.3. The offline demo and 103 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
+v0.3. The offline demo and 119 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
 real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
 synthetic traces; figures from live runs will be added once measured with `docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
 naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)

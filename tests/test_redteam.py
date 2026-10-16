@@ -194,8 +194,10 @@ class TestP2(unittest.TestCase):
             with self.assertRaises(seal.SealError, msg=over):
                 seal.validate(manifest(**over))
 
-    def test_dated_ids_match_on_both_sides(self):
-        t = trace(model="claude-sonnet-5-5", events=[tool_use("Read", {}, model="claude-sonnet-5-5-20260101")])
+    def test_dated_allowed_id_matches_itself(self):
+        # round 2 narrowed this: a dated allowed id matches only that snapshot, an alias matches any date
+        t = trace(model="claude-sonnet-5-5-20260101",
+                  events=[tool_use("Read", {}, model="claude-sonnet-5-5-20260101")])
         self.assertTrue(validity.check(t, manifest(allowed_models=["claude-sonnet-5-5-20260101"])).valid)
 
 

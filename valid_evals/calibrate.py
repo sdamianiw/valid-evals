@@ -7,13 +7,40 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from valid_evals import decide, seal
+import hashlib
+
+from valid_evals import decide, jury, seal, validity
 
 LABELS = ("pass", "fail")
 
 
 class CalibrationError(Exception):
     pass
+
+
+def verify_rows(manifest_path: Path, rows: list[dict], cases_dir: Path) -> None:
+    """results.jsonl is an input, not a fact: every row must come from this sealed rule and these traces, and
+    every case on disk must have its row. Validity is checked again; a verdict must follow from its votes."""
+    m = seal.verify(manifest_path)
+    h = seal.digest(m)
+    on_disk = {p.name for p in Path(cases_dir).iterdir() if p.is_dir()}
+    if sorted(r.get("case") for r in rows) != sorted(on_disk):
+        raise CalibrationError("results.jsonl does not hold exactly one row per case folder")
+    root = Path(cases_dir).resolve()
+    for r in rows:
+        if r.get("manifest_sha256") != h:
+            raise CalibrationError(f"{r.get('case')}: results come from another manifest; run again")
+        trace = (root / str(r.get("trace"))).resolve()
+        if root not in trace.parents:
+            raise CalibrationError(f"{r.get('case')}: trace path outside the cases folder")
+        raw = trace.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != r.get("trace_sha256"):
+            raise CalibrationError(f"{r.get('case')}: trace changed since run")
+        v = validity.check(raw.decode("utf-8"), m)
+        if (v.valid, v.cause) != (r.get("valid"), r.get("cause")):
+            raise CalibrationError(f"{r.get('case')}: stored validity does not match the trace")
+        if v.valid and (not isinstance(r.get("votes"), dict) or jury.combine(r["votes"]) != r.get("verdict")):
+            raise CalibrationError(f"{r.get('case')}: verdict does not follow from the votes")
 
 
 def kappa(a: list[str], b: list[str]) -> float | None:

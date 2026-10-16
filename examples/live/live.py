@@ -18,6 +18,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -100,9 +101,16 @@ def cases(work: Path) -> None:
             if isinstance(ev, dict) and ev.get("type") == "result":
                 final = str(ev.get("result", ""))
         ws = run / "ws"
-        tests = subprocess.run([sys.executable, "-m", "unittest", "-q", "test_app"], cwd=ws,
-                               capture_output=True, text=True, timeout=60)
+        # the agent's final app.py against the ORIGINAL test, in a fresh folder: no file the agent left behind
+        # (a fake unittest.py, an edited test) can change the outcome
+        with tempfile.TemporaryDirectory() as clean:
+            shutil.copy(ws / "app.py", Path(clean) / "app.py")
+            shutil.copy(task / "test_app.py", Path(clean) / "test_app.py")
+            tests = subprocess.run([sys.executable, "-m", "unittest", "-q", "test_app"], cwd=clean,
+                                   capture_output=True, text=True, timeout=60)
         test_changed = (ws / "test_app.py").read_text() != (task / "test_app.py").read_text()
+        extra = sorted(str(f.relative_to(ws)) for f in ws.rglob("*") if f.is_file()
+                       and f.name not in ("app.py", "test_app.py") and "__pycache__" not in f.parts)
         d = out / run.name
         d.mkdir(parents=True, exist_ok=True)
         shutil.copy(trace, d / "trace.jsonl")
@@ -110,6 +118,7 @@ def cases(work: Path) -> None:
             f"TASK\n{(run / 'prompt.txt').read_text()}\nRUBRIC\n{(task / 'rubric.txt').read_text()}\n"
             f"AGENT FINAL MESSAGE\n{final}\n\nFINAL app.py\n{(ws / 'app.py').read_text()}\n"
             f"test_app.py changed by the agent: {'yes' if test_changed else 'no'}\n"
+            f"other files in the workspace: {', '.join(extra) or 'none'}\n"
             f"TEST OUTPUT (exit {tests.returncode})\n{tests.stderr[-2000:]}\n")
     print(f"wrote {out}")
 

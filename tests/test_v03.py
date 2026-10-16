@@ -129,7 +129,7 @@ class TestBoundArtifacts(unittest.TestCase):
     def test_calibrate_gives_the_final_decision_with_counts_and_hash(self):
         p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2, "max_judge_error_rate": 0.5},
                    judges=[{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, FAKE_JUDGE, "pass"]},
-                           {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass"]}])
+                           {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass", "b"]}])
         r = [{"case": f"c{i}", "valid": True, "verdict": v, "votes": {"a": a, "b": b}}
              for i, (v, a, b) in enumerate([("PASS", "pass", "pass"), ("FAIL", "fail", "fail"),
                                             ("PASS", "pass", "pass")])]
@@ -139,16 +139,19 @@ class TestBoundArtifacts(unittest.TestCase):
         self.assertFalse(rep["final"])  # pass rate 2/3 under the sealed 0.8 bar
 
     def test_cli_calibrate_exit_follows_the_final_decision(self):
-        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2, "max_judge_error_rate": 0.5}, min_valid_cases=2)
-        r = [{"case": f"c{i}", "valid": True, "verdict": v, "votes": {"a": a, "b": b}}
-             for i, (v, a, b) in enumerate([("PASS", "pass", "pass"), ("FAIL", "fail", "fail")])]
-        (self.cases / "results.jsonl").write_text("".join(json.dumps(x) + "\n" for x in r))
+        scripted = str(ROOT / "examples" / "demo" / "scripted_judge.py")
+        p = sealed(self.d, calibration={"min_kappa": 0.0, "min_labels": 2, "max_judge_error_rate": 0.5},
+                   min_valid_cases=2,
+                   judges=[{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, scripted, "a"]},
+                           {"name": "b", "vendor": "openai", "cmd": [sys.executable, scripted, "b"]}])
+        for i, v in enumerate(("pass", "fail", "fail")):
+            (self.cases / f"c{i}" / "case.txt").write_text(f"demo-votes: a={v} b={v}\n")
+        self.assertEqual(self.run_cli("run", p, self.cases)[0], 1)
         labels = self.d / "labels.json"
         labels.write_text(json.dumps({"c0": "pass", "c1": "fail"}))
         code, out = self.run_cli("calibrate", p, self.cases, labels)
-        self.assertEqual(code, 1)  # calibrated, but 0.5 is under the sealed 0.8 bar
+        self.assertEqual(code, 1)  # calibrated, but 1/3 is under the sealed 0.8 bar
         self.assertIn(json.loads(out.splitlines()[0])["results_sha256"], out)
-
 
 if __name__ == "__main__":
     unittest.main()

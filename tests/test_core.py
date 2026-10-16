@@ -24,7 +24,7 @@ def manifest(**over):
         "allowed_models": ["claude-sonnet-5-5"], "allowed_tools": ["Read", "Grep"],
         "canaries": ["CANARY-7f3a"], "require_bare": True,
         "judges": [{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, FAKE_JUDGE, "pass"]},
-                   {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass"]}],
+                   {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass", "b"]}],
     }
     m.update(over)
     return m
@@ -131,9 +131,10 @@ class TestValidity(unittest.TestCase):
         r = self.check(trace(events=[tool_use("Read", {"file_path": "a"}, model="<synthetic>")]))
         self.assertTrue(r.valid, r)
 
-    def test_unknown_events_and_bad_lines_are_tolerated(self):
-        text = trace() + '\n{"type": "stream_event", "event": {}}\nnot json\n'
-        self.assertTrue(self.check(text).valid)
+    def test_unknown_events_are_tolerated_but_unreadable_lines_are_not(self):
+        # v0.3: a line we cannot read could hide a model switch or a human turn, so it fails closed
+        self.assertTrue(self.check(trace() + '\n{"type": "stream_event", "event": {}}\n').valid)
+        self.assertEqual(self.check(trace() + "\nnot json\n").cause, "run_error")
 
 
 class TestJury(unittest.TestCase):
@@ -155,7 +156,7 @@ class TestJury(unittest.TestCase):
 
     def test_claude_json_structured_output_is_read(self):
         js = [{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, FAKE_JUDGE, "structured_pass"]},
-              {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass"]}]
+              {"name": "b", "vendor": "openai", "cmd": [sys.executable, FAKE_JUDGE, "pass", "b"]}]
         self.assertEqual(jury.judge("case", js).verdict, "PASS")
 
     def test_crash_is_judge_error(self):

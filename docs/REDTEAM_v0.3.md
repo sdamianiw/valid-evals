@@ -33,3 +33,21 @@ Not fixed, by choice:
   it. `claude -p` does not, per the fixtures.
 - The available tool set in the init event is not compared with `allowed_tools` yet; only tools actually used
   are. Planned, since it would change how the README example has to be run.
+
+## Round 2, on v0.3
+
+A second red team agent attacked the fixes. Grouped by failure mode before fixing; tests in
+`tests/test_redteam2.py`.
+
+| Mode | Findings | Fix |
+|---|---|---|
+| `calibrate` trusted `results.jsonl` | results from a laxer manifest, or hand edited validity and verdicts, gave exit 0 | every row carries the manifest hash; every case folder needs its row; traces are hashed and checked again; a verdict must follow from its votes |
+| Matching on raw text | dated ids matched another snapshot; canaries hidden by any JSON escape (`\u0043`, `\/`, surrogate pairs, upper case hex); reference paths missed by case, backslashes, a bare folder name, or quotes in the sealed path | match on decoded strings; paths case folded with `\` read as `/` and no trailing separator; a dated allowed id matches only itself |
+| Loose trace shape | Claude events inside a Codex trace; a completion with no started turn; unparsable lines dropped; init after agent events | all run_error |
+| Permissive seal | threshold outside [0, 1]; the same command as both judges; unknown keys (a typo switched a guard off); duplicate keys in judge output | refused |
+| Exit meaning | an uncalibrated jury exited 1, which reads as "the rule failed" | exit 2: no decision |
+| Live demo | a `unittest.py` left by the agent faked a passing test run | tests run on the final `app.py` with the original test in a clean folder; extra files are listed in the case |
+
+Still open from round 2's "could not verify": whether real Claude Code emits main thread user text that is not
+human (compaction summaries, skill content), which would read as human_turn; and whether the Codex judge can read
+files by absolute path despite the empty working directory.

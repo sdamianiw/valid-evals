@@ -16,9 +16,16 @@ def is_codex(events: list[dict]) -> bool:
     return any(e.get("type") == "thread.started" for e in events)
 
 
+CLAUDE_TYPES = ("system", "assistant", "user", "result")
+
+
 def findings(events: list[dict], manifest: dict, add) -> None:
     from valid_evals import validity  # validity imports this module; a top level import would be circular
+    if any(e.get("type") in CLAUDE_TYPES for e in events):
+        add("run_error", "Claude events inside a Codex trace")
     turns = [e.get("type") for e in events if e.get("type") in ("turn.started", "turn.completed", "turn.failed")]
+    if turns[0::2] != ["turn.started"] * len(turns[0::2]) or any(t == "turn.started" for t in turns[1::2]):
+        add("run_error", "turn events out of order")
     if "turn.failed" in turns:
         failed = next(e for e in events if e.get("type") == "turn.failed")
         add("run_error", (failed.get("error") or {}).get("message", "turn.failed"))
@@ -41,7 +48,7 @@ def findings(events: list[dict], manifest: dict, add) -> None:
         name = f"mcp:{it.get('server')}/{it.get('tool')}" if kind == "mcp_tool_call" else kind
         named = {"command_execution": it.get("command"), "file_change": it.get("changes"),
                  "mcp_tool_call": it.get("arguments"), "web_search": it.get("query")}.get(kind)
-        validity.reference_paths(json.dumps(named, ensure_ascii=False), manifest, add)
+        validity.reference_paths(named, manifest, add)
         if kind == "mcp_tool_call" and manifest.get("require_bare"):
             add("isolation_breach", {"mcp_tool_call": name})
         if name not in manifest["allowed_tools"]:

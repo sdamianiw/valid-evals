@@ -98,15 +98,27 @@ class TestCalibrate(unittest.TestCase):
             calibrate.calibrate(self.sealed(), rows(*self.AGREE), ["pass", "fail"])
 
     def test_cli_exit_codes(self):
-        p = self.sealed()
+        # results.jsonl must come from a real run (v0.3 round 2): build cases, run, then calibrate
+        from tests.test_core import trace
+        scripted = str(ROOT / "examples" / "demo" / "scripted_judge.py")
+        m = manifest(threshold=0.5, calibration={"min_kappa": 0.6, "min_labels": 4, "max_judge_error_rate": 0.5},
+                     judges=[{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, scripted, "a"]},
+                             {"name": "b", "vendor": "openai", "cmd": [sys.executable, scripted, "b"]}])
+        p = self.d / "manifest.json"
+        p.write_text(json.dumps(m))
+        seal.seal(p)
         cases = self.d / "cases"
-        cases.mkdir()
-        (cases / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows(*self.AGREE)))
+        for i, (a, b) in enumerate(self.AGREE):
+            c = cases / f"c{i}"
+            c.mkdir(parents=True)
+            (c / "trace.jsonl").write_text(trace() + "\n")
+            (c / "case.txt").write_text(f"demo-votes: a={a} b={b}\n")  # "error" is not a vote: the judge crashes
+        self.assertEqual(cli.main(["run", str(p), str(cases)]), 1)  # provisional
         labels = self.d / "labels.json"
         labels.write_text(json.dumps(self.HUMAN))
         self.assertEqual(cli.main(["calibrate", str(p), str(cases), str(labels)]), 0)
         labels.write_text(json.dumps({"c0": "fail", "c1": "pass", "c2": "pass", "c3": "fail"}))
-        self.assertEqual(cli.main(["calibrate", str(p), str(cases), str(labels)]), 1)
+        self.assertEqual(cli.main(["calibrate", str(p), str(cases), str(labels)]), 2)  # not calibrated: no decision
         p.write_text(p.read_text().replace("0.6", "0.1"))
         self.assertEqual(cli.main(["calibrate", str(p), str(cases), str(labels)]), 2)
 
