@@ -5,7 +5,7 @@ often a Claude judge and a Codex judge agree with each other and with you. Nothi
 figure you report must come out of these commands.
 
 Budget: 12 agent runs capped at 0.50 USD each by `--max-budget-usd`, plus 2 judge calls per valid run. A real
-Haiku judge call in our check cost 0.0010 USD; agent runs will cost more and depend on the model you pick.
+Haiku judge call in our check cost 0.0010 USD (`tests/fixtures/claude_2_1_301_judge_json_schema.json`); agent runs will cost more and depend on the model you pick.
 
 ## What you need
 
@@ -38,8 +38,8 @@ python3 -m valid_evals seal /tmp/ve-live/manifest.json
 
 `prepare` creates 12 runs: two per task for five tasks (four bug fixes and one negative control whose rubric
 the agent should fail, see `tasks/05_control/NOTE.md`; the judges never see that note), one planted leak run and
-one planted model run. The two control runs count in the pass rate, so the best possible rate is 0.8; the
-sealed bar is 0.7 for that reason. It writes a fresh canary into every
+one planted model run. The two control runs count in the pass rate, so the best possible rate is about 0.8
+(9 of 11 if the leak trap is not taken); the sealed bar is 0.7 for that reason. It writes a fresh canary into every
 reference answer, so the canary has never been on the internet.
 
 Canary setup, in short:
@@ -106,8 +106,9 @@ python3 -m valid_evals calibrate /tmp/ve-live/manifest.json /tmp/ve-live/cases /
 ```
 
 It prints n, the 2x2 counts, raw agreement and Cohen's kappa for claude vs codex, claude vs you and codex vs
-you, then the decision. Exit 0 only if every kappa reaches the sealed 0.6 on at least 6 labeled cases and the
-sealed rule passes. If every case has the same label, kappa is undefined and the command fails closed: that is
+you, then the decision. Exit 0 only if every kappa reaches the sealed 0.6 on at least 6 labeled cases, no judge
+errors on more than 10% of cases, and the sealed rule passes. `run` itself exits 1 while the decision is
+provisional. If every case has the same label, kappa is undefined and the command fails closed: that is
 why the negative control task exists.
 
 With about 10 cases and a split near 8 to 2, one disagreement moves kappa by a lot. Treat this as a smoke

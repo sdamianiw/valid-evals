@@ -10,13 +10,15 @@ caliper, your own script). Before a score counts, it answers three questions:
 
 1. **Was the rule fixed before we looked?** The decision rule (metric, threshold, the exact sentence for pass and
    for fail) is sealed with sha256 before any run. Edit it afterwards and the decision is refused.
-2. **Was the run valid?** Each trace is checked, without any model call, for a crash, host hooks or MCP servers
-   leaking in, a model other than the one you asked for, the answer key showing up (canary strings), a human turn,
-   or a tool outside the allowlist. An invalid run gets exactly one cause and never counts.
-3. **Do two judges from different vendors agree?** A case counts only when both say pass or both say fail. A split
-   goes to a queue for a person. Output a judge cannot parse is counted as an error, never as a vote.
+2. **Was the run valid?** Each trace is checked, without any model call, for a crash or early stop, MCP servers or
+   host plugins present at start, a model other than the one you asked for, the answer key showing up (canary
+   strings or a tool call that names a reference path), a human turn, or a tool outside the allowlist. An
+   invalid run gets exactly one cause and never counts.
+3. **Do two judges from different vendors agree, and do they agree with you?** A case counts only when both say
+   pass or both say fail. A split goes to a queue for a person. Output a judge cannot parse is an error, never a
+   vote. Before the decision is final, the judges are checked against a sample you labeled yourself.
 
-It is not a runner, a dashboard or a framework. Python standard library only.
+It is not a runner, a dashboard or a framework. Python 3.10 or later, standard library only, nothing to install.
 
 ## Try it (no API key)
 
@@ -25,58 +27,97 @@ git clone https://github.com/sdamianiw/valid-evals && cd valid-evals
 python3 examples/demo/run_offline.py
 ```
 
-Eight synthetic runs of a coding agent. Three of them cheat in ways a lone judge cannot see.
+Eight synthetic runs of a coding agent. Three of them cheat in ways a lone judge cannot see; one splits the
+jury. This is the real output (a test keeps this block equal to it):
 
+<!-- demo-output -->
 ```
+seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
 naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
 
 01_clean       VALID    PASS
+02_clean       VALID    PASS
+03_clean       VALID    PASS
 04_split       VALID    DISAGREE
+05_clean_fail  VALID    FAIL
 06_wrong_model INVALID  model_mismatch
 07_read_answer INVALID  reference_leak
 08_human_hint  INVALID  human_turn
-...
-{"ok": false, "pass_rate": 0.75, "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, ...}
+{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
 Do not ship: on valid runs the agent is under the sealed bar.
 
 after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused
 ```
 
-The naive number says ship. The valid number says do not.
+A naive single judge pass rate says ship (0.875). On agreed valid runs the rate is 0.75, under the sealed 0.8.
+The bounds `[0.6, 0.8]` say the one split case decides the outcome: had both judges passed it, the rule would
+pass. So someone has to read `04_split` before anyone ships. Editing the threshold afterwards is refused.
 
 ## Use it on your own runs
 
-1. Write `manifest.json` (see `examples/demo/run_offline.py` for every field) and seal it:
-   `python3 -m valid_evals seal manifest.json`. Commit `manifest.lock` before you run anything; git history is
-   your timestamp.
-2. Put a canary string inside every reference or answer file the agent must not read (the manifest needs at
-   least one), and list the reference locations in `reference_paths`: a tool call that names one is a leak even
-   when the agent transforms what it reads so the canary never shows.
-3. Run your agent in bare mode and keep the trace:
-   `claude --bare -p "$TASK" --model claude-sonnet-5-5 --allowedTools "Read,Grep,Edit" --output-format stream-json --verbose > cases/01/trace.jsonl`
-   or `codex exec --json --ephemeral "$TASK" > cases/01/trace.jsonl`. The trace shape is detected; any other
-   shape is a run error.
-4. Put what the judges should grade in `cases/01/case.txt` (task, rubric, the agent's final output).
-5. `python3 -m valid_evals run manifest.json cases/`
+Run the commands from the repo root, or set `PYTHONPATH` to it.
 
-Exit code 0 means the sealed rule passed, 1 means it failed, 2 means the decision was refused.
+1. Write `manifest.json` (fields below) and seal it: `python3 -m valid_evals seal manifest.json`. Commit
+   `manifest.lock` before you run anything; git history is your timestamp.
+2. Put a canary string inside every reference or answer file the agent must not read, and list where those files
+   live in `reference_paths`.
+3. Run your agent and keep the trace. For Claude Code, `--tools` limits what the agent can call and
+   `--allowedTools` only pre approves them, so pass both:
+   `claude --bare -p "$TASK" --model claude-sonnet-5-5 --tools "Read,Grep,Edit" --allowedTools "Read,Grep,Edit" --output-format stream-json --verbose > cases/01/trace.jsonl`
+   For Codex, see below.
+4. Put what the judges should grade in `cases/01/case.txt` (task, rubric, the agent's final output).
+5. `python3 -m valid_evals run manifest.json cases/` checks every trace, asks the jury about the valid ones and
+   writes `cases/results.jsonl` and `cases/human_queue.jsonl`.
+6. Label a sample yourself, then `python3 -m valid_evals calibrate manifest.json cases/ labels.json` gives the
+   final decision (see Calibrate the judges).
+
+### Manifest fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `metric` | yes | `pass_rate` |
+| `comparator`, `threshold` | yes | for example `>=` and `0.8` |
+| `min_valid_cases` | yes | fewer counted cases and the decision is refused |
+| `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentences printed for each result |
+| `allowed_models` | yes | model ids the trace must report; a dated id matches its alias |
+| `allowed_tools` | yes | tool names the agent may call (Codex: see below) |
+| `canaries` | yes | at least one string planted in every reference file |
+| `require_bare` | yes | `true`: MCP servers or plugins other than the CLI's builtin ones make the run invalid |
+| `judges` | yes | two judges, different names and vendors, each `{"name", "vendor", "cmd": [...]}` |
+| `reference_paths` | no | path fragments; a tool call that names one is a leak |
+| `trust_runner_model` | no | `true` accepts Codex runs whose trace names no model |
+| `calibration` | no | `{"min_kappa", "min_labels", "max_judge_error_rate"}`; makes `run` provisional until `calibrate` passes |
+
+### Exit codes
+
+| Command | 0 | 1 | 2 |
+|---|---|---|---|
+| `run` | sealed rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, too few counted cases, bad input |
+| `calibrate` | jury calibrated and rule passed | either did not | refused: no calibration sealed, too few labels, bad labels |
+| `check` | every trace valid | any trace invalid | refused |
 
 ### Judges
 
-A judge is any command that reads the case on stdin and prints `{"verdict": "pass"}` or `{"verdict": "fail"}`.
-The output of `claude -p --output-format json --json-schema` is also understood (it reads `structured_output`).
+A judge is any command that reads the case on stdin and prints `{"verdict": "pass"}` or `{"verdict": "fail"}`. It
+runs in an empty temporary directory, so it sees the case and nothing else. Its output is read as one JSON value,
+or else its last line only. The output of `claude -p --output-format json --json-schema` is understood (it reads
+`structured_output`); that shape is pinned by a real judge call in `tests/fixtures`.
 
 ```json
 {"name": "claude", "vendor": "anthropic",
  "cmd": ["claude", "--bare", "-p", "Grade this case against its rubric. Answer pass or fail.",
-         "--output-format", "json",
-         "--json-schema", "{\"type\":\"object\",\"properties\":{\"verdict\":{\"enum\":[\"pass\",\"fail\"]}},\"required\":[\"verdict\"]}"]}
+         "--tools", "", "--output-format", "json",
+         "--json-schema", "{\"type\":\"object\",\"properties\":{\"verdict\":{\"type\":\"string\",\"enum\":[\"pass\",\"fail\"]}},\"required\":[\"verdict\"],\"additionalProperties\":false}"]}
 ```
 
-The second judge must come from another vendor, for example an OpenAI model through the Codex CLI or a small
-script that calls any other API. The seal step rejects two judges from the same vendor.
+The second judge must come from another vendor. `examples/live/live.py` builds one with the Codex CLI
+(`codex exec --output-schema`); its output has not been checked against a live call yet.
 
 ### Codex traces
+
+A trace from `codex exec --json` is detected by its shape. Not yet run live end to end: the format is pinned by
+one real failed run and the event types of the Codex SDK. A starting point, flags from `codex exec --help`
+(0.163.0): `codex exec --json --ephemeral --ignore-user-config -s workspace-write "$TASK" > cases/01/trace.jsonl`.
 
 `codex exec --json` does not say which model ran. A Codex run is therefore INVALID with `model_unverified`
 unless the sealed manifest sets `"trust_runner_model": true`, which puts that trust on the record. Codex tools are
@@ -87,40 +128,80 @@ during the run and counts as a human turn.
 ### Calibrate the judges
 
 Add `"calibration": {"min_kappa": 0.6, "min_labels": 20, "max_judge_error_rate": 0.1}` to the manifest before
-sealing. `run` then prints its decision as PROVISIONAL. Label a sample yourself as `{"case": "pass"|"fail"}`
-without looking at the votes, and run `python3 -m valid_evals calibrate manifest.json cases/ labels.json`. It
-prints n, the 2x2 counts, raw agreement and Cohen's kappa for judge vs judge and each judge vs you, each judge's
-error rate, and the decision, from the votes `run` saved (with their sha256). Exit 0 only when the jury is
-calibrated and the sealed rule passes, 1 when either does not, 2 when it refuses (no sealed calibration, too few
-labels, a bad label). A kappa is undefined when every label is the same; that fails. Your labels never change
-the decision: they only say whether the jury can be trusted.
+sealing. `run` then prints its decision as PROVISIONAL and never exits 0. Label a sample yourself as
+`{"case": "pass"|"fail"}` without looking at the votes, and run
+`python3 -m valid_evals calibrate manifest.json cases/ labels.json`. It prints n, the 2x2 counts, raw agreement
+and Cohen's kappa for judge vs judge and each judge vs you, each judge's error rate, and the decision, from the
+votes `run` saved. A kappa is undefined when every label is the same; that fails. Your labels never change the
+decision: they only say whether the jury can be trusted.
 
+Both `run` and `calibrate` print the sha256 of `results.jsonl`; if they differ, the votes changed in between.
 Every decision also prints a Wilson 95% interval and the pass rate if every split case had been a fail, or a
 pass. If that range crosses the bar, the split cases decide the outcome; read them.
 
 ## Live demo
 
-`docs/LIVE_DEMO.md` is a runbook for your own Claude and Codex CLIs on five small public tasks, with a fresh
-canary, a planted leak and a planted model switch. It reports cost, invalid runs caught and judge agreement.
+`docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
+naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
+
+01_clean       VALID    PASS
+02_clean       VALID    PASS
+03_clean       VALID    PASS
+04_split       VALID    DISAGREE
+05_clean_fail  VALID    FAIL
+06_wrong_model INVALID  model_mismatch
+07_read_answer INVALID  reference_leak
+08_human_hint  INVALID  human_turn
+{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
+Do not ship: on valid runs the agent is under the sealed bar.
+
+after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused.md` is a runbook for your own Claude and Codex CLIs on five small public tasks, with a fresh
+canary, a planted leak and a planted model switch. It reports cost, false alarms on clean runs, planted runs
+caught and judge agreement. No live figures are published yet.
 
 ## What it does not catch (yet)
 
-- A canary that the agent sees in a transformed form (base64, paraphrase). Canaries catch copies, not understanding.
-- Human turns outside bare mode, where Claude Code adds its own user messages. Use `require_bare`.
+- A canary that the agent sees in a transformed form (base64, paraphrase) unless the read names a sealed
+  reference path. Path matching is a plain substring: a glob such as `cat ref*/s*` gets past it, and an
+  unrelated path that contains the fragment raises a false alarm.
+- Hooks: the trace does not list them. Run with `--bare`; `require_bare` itself only checks MCP servers and
+  plugins, not that `--bare` was used.
+- Human turns outside bare mode, where Claude Code may add its own user messages.
 - A host plugin made to look builtin. Plugins with `path: builtin` and a source ending in `@builtin` ship with
   the CLI and are listed even under `--bare`, so they are allowed.
 - The model of a Codex run, unless you trust the runner; and Codex config, `AGENTS.md` or hooks, since only MCP
   calls that actually happen are visible in the trace.
-- A decision taken from `run` alone when no calibration block was sealed. With one, `run` is only provisional.
-- Edits to `results.jsonl` between `run` and `calibrate` are not refused: both print its sha256, compare them.
+- Tools available but unused: only tools the agent called are checked against `allowed_tools`.
+- A decision taken from `run` alone when no calibration block was sealed.
 - Judge agreement is only as good as the judges, and kappa on a few labels is noise. Report n with it.
 
 See `docs/PREMORTEM_v0.2.md` and `docs/REDTEAM_v0.3.md` for the full list and what is planned.
 
+## Prior art
+
+None of the pieces is new. Pre-registering an analysis before seeing data is standard practice in empirical
+science. Canary strings in evaluation data follow the BIG-bench convention. Checking an LLM judge against human
+labels with Cohen's kappa is common in judge evaluations. What this repo adds is putting the three in front of
+an agent eval score, as one small check with no model call in the validity step.
+
 ## Status
 
-v0.3. The offline demo and 99 tests pass. Trace parsing is pinned by redacted real traces from Claude Code
-2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from synthetic traces; figures
-from live runs will be added once measured with `docs/LIVE_DEMO.md`.
+v0.3. The offline demo and 103 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
+real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
+synthetic traces; figures from live runs will be added once measured with `docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
+naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
+
+01_clean       VALID    PASS
+02_clean       VALID    PASS
+03_clean       VALID    PASS
+04_split       VALID    DISAGREE
+05_clean_fail  VALID    FAIL
+06_wrong_model INVALID  model_mismatch
+07_read_answer INVALID  reference_leak
+08_human_hint  INVALID  human_turn
+{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
+Do not ship: on valid runs the agent is under the sealed bar.
+
+after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused.md`.
 
 MIT license.

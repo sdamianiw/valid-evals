@@ -115,6 +115,13 @@ class TestBoundArtifacts(unittest.TestCase):
         self.assertEqual(summary["calibration"], "pending")
         self.assertIn("PROVISIONAL", out)
 
+    def test_provisional_pass_never_exits_0(self):
+        p = sealed(self.d, threshold=0.5, calibration={"min_kappa": 0.6, "min_labels": 2,
+                                                       "max_judge_error_rate": 0.5})
+        code, out = self.run_cli("run", p, self.cases)
+        self.assertIn("PROVISIONAL", out)
+        self.assertEqual(code, 1)
+
     def test_run_without_calibration_block_is_not_provisional(self):
         code, out = self.run_cli("run", sealed(self.d), self.cases)
         self.assertNotIn("PROVISIONAL", out)

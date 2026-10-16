@@ -17,5 +17,27 @@ class TestDemo(unittest.TestCase):
         self.assertIn("REFUSED: manifest changed after sealing", p.stdout)
 
 
+
+class TestReadmeShowsTheRealDemo(unittest.TestCase):
+    """The README output block is the demo's real output, not typed by hand."""
+
+    def test_readme_block_equals_demo_output(self):
+        out = subprocess.run([sys.executable, "examples/demo/run_offline.py"], cwd=ROOT, capture_output=True,
+                             text=True).stdout.strip()
+        readme = (ROOT / "README.md").read_text()
+        start = readme.index("<!-- demo-output -->")
+        block = readme[start:].split("```", 2)[1]
+        self.assertEqual(block.strip(), out)
+
+
+
+class TestReadmeTestCount(unittest.TestCase):
+    def test_readme_states_the_real_test_count(self):
+        import re
+        n = unittest.TestLoader().discover(str(ROOT / "tests"), top_level_dir=str(ROOT)).countTestCases()
+        stated = int(re.search(r"and (\d+) tests pass", (ROOT / "README.md").read_text()).group(1))
+        self.assertEqual(stated, n)
+
+
 if __name__ == "__main__":
     unittest.main()

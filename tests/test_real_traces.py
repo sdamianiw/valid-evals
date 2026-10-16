@@ -71,6 +71,13 @@ class TestRealClaudeTraces(unittest.TestCase):
         self.assertEqual(v.cause, "run_error")
         self.assertIn("max_turns", v.details["run_error"])
 
+    def test_real_claude_judge_output_is_read(self):
+        from valid_evals import jury
+        out = FIX / "claude_2_1_301_judge_json_schema.json"
+        judge = {"name": "claude", "vendor": "anthropic",
+                 "cmd": [sys.executable, "-c", f"import sys; sys.stdin.read(); print(open({str(out)!r}).read())"]}
+        self.assertEqual(jury._vote(judge, "case"), "pass")
+
     def test_synthetic_error_message_is_not_a_model_mismatch(self):
         v = validity.check(BARE_AUTH_ERROR, manifest(allowed_models=["claude-opus-5-5"]))
         self.assertNotIn("model_mismatch", v.details)

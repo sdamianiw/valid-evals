@@ -7,7 +7,8 @@
                                                  judge agreement from CASES_DIR/results.jsonl vs LABELS
                                                  ({"case": "pass"|"fail"}), gated by the sealed minimum kappa
 
-Exit codes: 0 sealed rule passed, 1 sealed rule failed, 2 refused (broken seal, too few valid cases, bad input).
+Exit codes: 0 sealed rule passed, 1 sealed rule failed or still provisional (calibration sealed, `calibrate` gives
+the final decision), 2 refused (broken seal, too few valid cases, bad input). `check`: 0 all valid, 1 any invalid.
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     m = seal.verify(manifest_path)
     rows, queue = [], []
     for case in sorted(p for p in cases_dir.iterdir() if p.is_dir()):
-        row = {"case": case.name, **_check(m, case / "trace.jsonl")}
+        # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
+        row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl"}
         if row["valid"]:
             j = jury.judge((case / "case.txt").read_text(encoding="utf-8"), m["judges"])
             row.update(verdict=j.verdict, votes=j.votes)
@@ -52,7 +54,7 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
                       "results_sha256": hashlib.sha256(results.encode()).hexdigest(),
                       **({"calibration": "pending"} if pending else {})}))
     print(("PROVISIONAL until calibrate passes: " if pending else "") + d.sentence)
-    return 0 if d.ok else 1
+    return 0 if d.ok and not pending else 1  # a provisional pass is not a pass
 
 
 def main(argv=None) -> int:

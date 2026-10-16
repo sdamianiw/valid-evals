@@ -14,7 +14,9 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
 ## Modules
 1. `seal`: canonical JSON of the manifest, then sha256. `seal` writes `manifest.lock`. Every later step verifies
    the hash and stops on mismatch. The manifest holds: metric, comparator, threshold, min_valid_cases, the two
-   outcome sentences, allowed_models, allowed_tools, canaries, require_bare, and the judges.
+   outcome sentences, allowed_models, allowed_tools, canaries, require_bare, and the judges; optionally
+   reference_paths, trust_runner_model and a calibration block. Types and bounds are checked at seal; duplicate
+   keys, NaN and Infinity are refused.
 2. `validity`: reads a `claude -p --output-format stream-json --verbose` trace or a `codex exec --json` trace
    (`codex.py`), told apart by shape; any other shape is a run_error. It returns VALID, or INVALID with exactly one
    cause, picked by a fixed priority:
@@ -29,9 +31,12 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
    comparator, and prints the pre-written sentence. A broken seal, too few valid cases, or a bad input exits
    non-zero (fail closed).
 5. `calibrate`: reads the votes `run` wrote to `results.jsonl` and a human label file `{"case": "pass"|"fail"}`.
-   Reports n, raw agreement and Cohen's kappa for judge vs judge and each judge vs the people, plus judge errors.
-   Passes only if every kappa meets the sealed `calibration.min_kappa`; fewer than `calibration.min_labels`
-   labeled cases, a missing calibration block, a bad label or an undefined kappa (one label only) fail closed.
+   Reports n, 2x2 counts, raw agreement and Cohen's kappa for judge vs judge and each judge vs the people, plus
+   each judge's error rate, then the decision. Passes only if every kappa meets the sealed
+   `calibration.min_kappa` and every judge error rate is at most `calibration.max_judge_error_rate`; fewer than
+   `calibration.min_labels` labeled cases, a missing calibration block, a bad label or an undefined kappa (one
+   label only) fail closed. With a sealed calibration block, `run` is provisional and never exits 0; the final
+   decision is `calibrate`'s (exit 0 only when calibrated and the rule passes).
 
 ## Determinism
 Validity is pure Python over the trace, with no model calls. Canaries are fixed strings placed inside the
