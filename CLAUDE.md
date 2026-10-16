@@ -1,7 +1,7 @@
 # valid-evals principles (read before any action)
 
-1. Clean room. No code, prompts, data, names or examples from the author's employer. Public docs and first
-   principles only. If in doubt, leave it out and ask.
+1. No employer names. The author's own methods may be reused, but no company name, client, project name or
+   internal path appears anywhere in the repo. `tests/test_clean_room.py` guards this by hash. If in doubt, ask.
 2. Not a runner. We judge runs that other tools produce. Anything that turns this into a framework needs an ADR.
 3. Deterministic first: if a check can be a regex, a table or a parse, it is not a prompt. Validity never calls a model.
 4. Fail closed. A broken seal, too few valid cases, an unknown trace shape or an unparsable judge never counts as a pass.
