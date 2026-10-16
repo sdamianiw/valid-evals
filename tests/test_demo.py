@@ -1,5 +1,6 @@
 """End to end: the offline demo is the contract. Naive single judge ships, valid-evals refuses on valid runs,
 and an edited threshold is refused."""
+import re
 import subprocess
 import sys
 import unittest
@@ -27,7 +28,9 @@ class TestReadmeShowsTheRealDemo(unittest.TestCase):
         readme = (ROOT / "README.md").read_text()
         start = readme.index("<!-- demo-output -->")
         block = readme[start:].split("```", 2)[1]
-        self.assertEqual(block.strip(), out)
+        # judge commands hold the interpreter path and are part of the sealed rule, so hashes differ per machine
+        mask = lambda t: re.sub(r"\b[0-9a-f]{64}\b", "<sha256>", t)
+        self.assertEqual(mask(block.strip()), mask(out))
         self.assertEqual(readme.count("after editing the threshold to 0.7: exit 2"), 1, "demo output pasted outside its block")
 
 

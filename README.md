@@ -28,7 +28,8 @@ python3 examples/demo/run_offline.py
 ```
 
 Eight synthetic runs of a coding agent. Three of them cheat in ways a lone judge cannot see; one splits the
-jury. This is the real output (a test keeps this block equal to it):
+jury. This is the real output (a test keeps this block equal to it). The hashes on your machine will differ: the
+judge commands include the path to your Python, and they are part of the sealed rule.
 
 <!-- demo-output -->
 ```
