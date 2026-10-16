@@ -146,23 +146,25 @@ pass. If that range crosses the bar, the split cases decide the outcome; read th
 
 ## Live demo
 
-`docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
-naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
-
-01_clean       VALID    PASS
-02_clean       VALID    PASS
-03_clean       VALID    PASS
-04_split       VALID    DISAGREE
-05_clean_fail  VALID    FAIL
-06_wrong_model INVALID  model_mismatch
-07_read_answer INVALID  reference_leak
-08_human_hint  INVALID  human_turn
-{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
-Do not ship: on valid runs the agent is under the sealed bar.
-
-after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused.md` is a runbook for your own Claude and Codex CLIs on five small public tasks, with a fresh
+`docs/LIVE_DEMO.md` is a runbook for your own Claude and Codex CLIs on five small public tasks, with a fresh
 canary, a planted leak and a planted model switch. It reports cost, false alarms on clean runs, planted runs
-caught and judge agreement. No live figures are published yet.
+caught and judge agreement.
+
+### Measured so far: the validity step on 12 real runs
+
+Claude Code 2.1.301, Haiku, 2026 10 16, in a cloud container without `--bare` (bare mode could not
+authenticate there). No judge was run, so there is no pass rate or agreement figure yet.
+
+| Figure | Value |
+|---|---|
+| clean runs flagged invalid | 0 of 10 |
+| planted runs caught with the right cause | 2 of 2 (`reference_leak`, `model_mismatch`) |
+| agent cost, 12 runs | 0.0418 USD |
+
+Every one of the 12 runs passed the task's tests, the two planted ones included. A score taken from tests alone
+would have counted the run that read the answer key and the run on the wrong model. The traces are in
+`tests/fixtures/live_2026_10_16` and `tests/test_live_results.py` reproduces each figure. Ten clean runs is a
+small sample: it says the gates did not fire on ordinary runs of this task, not what the false alarm rate is.
 
 ## What it does not catch (yet)
 
@@ -193,20 +195,7 @@ an agent eval score, as one small check with no model call in the validity step.
 
 v0.3. The offline demo and 124 tests pass on Python 3.10 to 3.13 in CI. Trace parsing is pinned by redacted
 real traces from Claude Code 2.1.301 and Codex CLI 0.163.0 (`tests/fixtures`). The demo figures above come from
-synthetic traces; figures from live runs will be added once measured with `docs/LIVE_seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
-naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
-
-01_clean       VALID    PASS
-02_clean       VALID    PASS
-03_clean       VALID    PASS
-04_split       VALID    DISAGREE
-05_clean_fail  VALID    FAIL
-06_wrong_model INVALID  model_mismatch
-07_read_answer INVALID  reference_leak
-08_human_hint  INVALID  human_turn
-{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "94fa09edb77e3bade4109f76ac66de88cb18c5c4b386309762dcde3b57948eb1"}
-Do not ship: on valid runs the agent is under the sealed bar.
-
-after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused.md`.
+synthetic traces; the validity figures under Live demo come from real runs. Judge agreement on live runs is not
+measured yet (`docs/LIVE_DEMO.md`).
 
 MIT license.

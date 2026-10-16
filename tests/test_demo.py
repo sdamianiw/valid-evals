@@ -28,6 +28,7 @@ class TestReadmeShowsTheRealDemo(unittest.TestCase):
         start = readme.index("<!-- demo-output -->")
         block = readme[start:].split("```", 2)[1]
         self.assertEqual(block.strip(), out)
+        self.assertEqual(readme.count("after editing the threshold to 0.7: exit 2"), 1, "demo output pasted outside its block")
 
 
 
