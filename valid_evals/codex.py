@@ -7,6 +7,8 @@ file_change, web_search); MCP calls are named mcp:<server>/<tool>."""
 
 from __future__ import annotations
 
+import json
+
 NOT_TOOLS = ("agent_message", "reasoning", "todo_list", "error")
 
 
@@ -15,6 +17,7 @@ def is_codex(events: list[dict]) -> bool:
 
 
 def findings(events: list[dict], manifest: dict, add) -> None:
+    from valid_evals import validity  # validity imports this module; a top level import would be circular
     turns = [e.get("type") for e in events if e.get("type") in ("turn.started", "turn.completed", "turn.failed")]
     if "turn.failed" in turns:
         failed = next(e for e in events if e.get("type") == "turn.failed")
@@ -38,6 +41,9 @@ def findings(events: list[dict], manifest: dict, add) -> None:
         if kind in NOT_TOOLS:
             continue
         name = f"mcp:{it.get('server')}/{it.get('tool')}" if kind == "mcp_tool_call" else kind
+        named = {"command_execution": it.get("command"), "file_change": it.get("changes"),
+                 "mcp_tool_call": it.get("arguments"), "web_search": it.get("query")}.get(kind)
+        validity.reference_paths(json.dumps(named, ensure_ascii=False), manifest, add)
         if kind == "mcp_tool_call" and manifest.get("require_bare"):
             add("isolation_breach", {"mcp_tool_call": name})
         if name not in manifest["allowed_tools"]:

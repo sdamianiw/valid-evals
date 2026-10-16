@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 
 TIMEOUT_S = 300
@@ -18,7 +19,9 @@ class JuryResult:
 
 def _vote(judge: dict, case_text: str) -> str:
     try:
-        proc = subprocess.run(judge["cmd"], input=case_text, capture_output=True, text=True, timeout=TIMEOUT_S)
+        with tempfile.TemporaryDirectory() as empty:  # a judge sees the case on stdin and nothing else
+            proc = subprocess.run(judge["cmd"], input=case_text, capture_output=True, text=True, timeout=TIMEOUT_S,
+                                  cwd=empty)
     except (OSError, subprocess.TimeoutExpired):
         return "error"
     if proc.returncode != 0:

@@ -65,10 +65,11 @@ def prepare(work: Path, model: str, other_model: str, codex_cmd: str) -> None:
     (work / "verdict.schema.json").write_text(json.dumps(VERDICT_SCHEMA))
     schema = str((work / "verdict.schema.json").resolve())
     manifest = {
-        "metric": "pass_rate", "comparator": ">=", "threshold": 0.8, "min_valid_cases": 6,
+        "metric": "pass_rate", "comparator": ">=", "threshold": 0.7, "min_valid_cases": 6,
         "outcome": {"pass": "Ship: on valid runs the agent met the sealed bar.",
                     "fail": "Do not ship: on valid runs the agent is under the sealed bar."},
-        "allowed_models": [model], "allowed_tools": TOOLS, "canaries": [canary], "require_bare": True,
+        "allowed_models": [model], "allowed_tools": TOOLS, "canaries": [canary], "reference_paths": ["reference/"],
+        "require_bare": True,
         "calibration": {"min_kappa": 0.6, "min_labels": 6},
         "judges": [
             {"name": "claude", "vendor": "anthropic",

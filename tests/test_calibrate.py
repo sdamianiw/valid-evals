@@ -15,8 +15,13 @@ from valid_evals import calibrate, cli, seal  # noqa: E402
 from tests.test_core import manifest  # noqa: E402
 
 
+def verdict(a, b):
+    return "JUDGE_ERROR" if "error" in (a, b) else ("DISAGREE" if a != b else a.upper())
+
+
 def rows(*votes):
-    return [{"case": f"c{n}", "valid": True, "votes": {"a": a, "b": b}} for n, (a, b) in enumerate(votes)]
+    return [{"case": f"c{n}", "valid": True, "verdict": verdict(a, b), "votes": {"a": a, "b": b}}
+            for n, (a, b) in enumerate(votes)]
 
 
 class TestKappa(unittest.TestCase):
@@ -45,8 +50,8 @@ class TestCalibrate(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def sealed(self, **cal):
-        m = manifest(calibration={"min_kappa": 0.6, "min_labels": 4, **cal})
+    def sealed(self, threshold=0.5, **cal):
+        m = manifest(threshold=threshold, calibration={"min_kappa": 0.6, "min_labels": 4, **cal})
         p = self.d / "manifest.json"
         p.write_text(json.dumps(m))
         seal.seal(p)
@@ -58,7 +63,7 @@ class TestCalibrate(unittest.TestCase):
     def test_report_counts_and_passes_the_sealed_minimum(self):
         r = calibrate.calibrate(self.sealed(), rows(*self.AGREE), self.HUMAN)
         self.assertTrue(r["ok"])
-        self.assertEqual(r["pairs"]["a~b"], {"n": 4, "agreement": 1.0, "kappa": 1.0})
+        self.assertEqual({k: r["pairs"]["a~b"][k] for k in ("n", "agreement", "kappa")}, {"n": 4, "agreement": 1.0, "kappa": 1.0})
         self.assertEqual(r["pairs"]["a~human"]["n"], 4)
         self.assertEqual(r["pairs"]["b~human"]["n"], 5)
         self.assertEqual(r["judge_errors"], {"a": 1, "b": 0})

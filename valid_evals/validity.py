@@ -44,6 +44,13 @@ def _model_ok(model: str, allowed: list[str]) -> bool:
     return model == SYNTHETIC or _DATED.sub("", model or "") in allowed
 
 
+def reference_paths(text: str, manifest: dict, add) -> None:
+    """A tool call that names a sealed reference path is a leak, whatever it did with the content."""
+    for path in manifest.get("reference_paths", []):
+        if path in text:
+            add("reference_leak", {"path": path})
+
+
 def _builtin(plugin) -> bool:
     # plugins shipped inside the CLI are listed even under --bare (seen in 2.1.301); host plugins are not
     return isinstance(plugin, dict) and plugin.get("path") == "builtin" \
@@ -110,9 +117,10 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
             if msg_model and not _model_ok(msg_model, allowed_models):
                 add("model_mismatch", {"message": msg_model})
             for block in _content(ev) or []:
-                if isinstance(block, dict) and block.get("type") == "tool_use" \
-                        and block.get("name") not in manifest["allowed_tools"]:
-                    add("tool_not_allowed", block.get("name"))
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    if block.get("name") not in manifest["allowed_tools"]:
+                        add("tool_not_allowed", block.get("name"))
+                    reference_paths(json.dumps(block.get("input"), ensure_ascii=False), manifest, add)
         elif ev.get("type") == "user" and ev.get("parent_tool_use_id") is None and _is_human_text(ev):
             if prompt_slot:
                 prompt_slot = False

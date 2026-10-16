@@ -35,6 +35,9 @@ def validate(m: dict) -> None:
     judges = m["judges"]
     if len(judges) != 2 or len({j["vendor"] for j in judges}) != 2:
         raise SealError("jury needs two judges from two different vendors")
+    refs = m.get("reference_paths", [])
+    if not isinstance(refs, list) or not all(isinstance(r, str) and r for r in refs):
+        raise SealError("reference_paths must be a list of non empty strings")
     cal = m.get("calibration")
     if cal is not None and not (isinstance(cal, dict) and isinstance(cal.get("min_kappa"), (int, float))
                                 and isinstance(cal.get("min_labels"), int) and cal["min_labels"] > 0):

@@ -13,6 +13,7 @@ Exit codes: 0 sealed rule passed, 1 sealed rule failed, 2 refused (broken seal, 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -21,8 +22,10 @@ from valid_evals import calibrate, decide, jury, seal, validity
 
 
 def _check(manifest: dict, trace: Path) -> dict:
-    v = validity.check(trace.read_text(encoding="utf-8"), manifest)
-    return {"trace": str(trace), "valid": v.valid, "cause": v.cause, "details": v.details}
+    raw = trace.read_bytes()
+    v = validity.check(raw.decode("utf-8"), manifest)
+    return {"trace": str(trace), "trace_sha256": hashlib.sha256(raw).hexdigest(), "valid": v.valid, "cause": v.cause,
+            "details": v.details}
 
 
 def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
@@ -36,14 +39,19 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
             if j.verdict == "DISAGREE":
                 queue.append(row)
         rows.append(row)
-    (cases_dir / "results.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    results = "".join(json.dumps(r) + "\n" for r in rows)
+    (cases_dir / "results.jsonl").write_text(results)
     (cases_dir / "human_queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in queue))
     d = decide.decide(manifest_path, rows)
     for r in rows:
         print(f"{r['case']:<14} {'VALID' if r['valid'] else 'INVALID':<8} {r.get('cause') or r.get('verdict')}")
-    print(json.dumps({"ok": d.ok, "pass_rate": round(d.value, 3), "counted": d.counted, "excluded": d.excluded,
-                      "manifest_sha256": d.manifest_sha256}))
-    print(d.sentence)
+    pending = "calibration" in m
+    print(json.dumps({"ok": d.ok, "pass_rate": round(d.value, 3), "interval95": d.interval,
+                      "if_disagreements_failed_or_passed": [round(b, 3) for b in d.bounds],
+                      "counted": d.counted, "excluded": d.excluded, "manifest_sha256": d.manifest_sha256,
+                      "results_sha256": hashlib.sha256(results.encode()).hexdigest(),
+                      **({"calibration": "pending"} if pending else {})}))
+    print(("PROVISIONAL until calibrate passes: " if pending else "") + d.sentence)
     return 0 if d.ok else 1
 
 
@@ -73,10 +81,13 @@ def main(argv=None) -> int:
                 print(json.dumps(res))
             return 0 if all(res["valid"] for res in results) else 1
         if a.cmd == "calibrate":
-            rows = [json.loads(x) for x in (a.cases_dir / "results.jsonl").read_text().splitlines() if x.strip()]
+            raw = (a.cases_dir / "results.jsonl").read_bytes()
+            rows = [json.loads(x) for x in raw.decode("utf-8").splitlines() if x.strip()]
             report = calibrate.calibrate(a.manifest, rows, json.loads(a.labels.read_text(encoding="utf-8")))
+            report["results_sha256"] = hashlib.sha256(raw).hexdigest()
             print(json.dumps(report))
-            return 0 if report["ok"] else 1
+            print(report["decision"]["sentence"] if report["ok"] else "Jury not calibrated: no decision.")
+            return 0 if report["final"] else 1
         return cmd_run(a.manifest, a.cases_dir)
     except (seal.SealError, decide.DecisionError, calibrate.CalibrationError, OSError, json.JSONDecodeError, KeyError) as e:
         print(f"REFUSED: {e}", file=sys.stderr)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import operator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,6 +24,15 @@ class Decision:
     counted: int
     excluded: dict = field(default_factory=dict)
     manifest_sha256: str = ""
+    interval: tuple = ()  # Wilson 95% interval of the pass rate over counted cases
+    bounds: tuple = ()  # pass rate if every DISAGREE case had been a fail, or a pass; the decision does not use it
+
+
+def wilson(passes: int, n: int, z: float = 1.959964) -> tuple:
+    p, z2 = passes / n, z * z
+    centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+    half = z * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / (1 + z2 / n)
+    return (round(centre - half, 4), round(centre + half, 4))
 
 
 def decide(manifest_path: Path, rows: list[dict]) -> Decision:
@@ -42,6 +52,8 @@ def decide(manifest_path: Path, rows: list[dict]) -> Decision:
             counted.append(r["verdict"] == "PASS")
     if len(counted) < m["min_valid_cases"]:
         raise DecisionError(f"{len(counted)} counted cases, the sealed minimum is {m['min_valid_cases']}")
-    value = sum(counted) / len(counted)
+    passes, n, k = sum(counted), len(counted), excluded["disagree"]
+    value = passes / n
     ok = OPS[m["comparator"]](value, m["threshold"])
-    return Decision(ok, m["outcome"]["pass" if ok else "fail"], value, len(counted), excluded, seal.digest(m))
+    return Decision(ok, m["outcome"]["pass" if ok else "fail"], value, n, excluded, seal.digest(m),
+                    wilson(passes, n), (passes / (n + k), (passes + k) / (n + k)))

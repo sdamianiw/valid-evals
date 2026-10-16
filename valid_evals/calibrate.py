@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from valid_evals import seal
+from valid_evals import decide, seal
 
 LABELS = ("pass", "fail")
 
@@ -30,8 +30,9 @@ def _pair(x: dict, y: dict) -> dict:
     keys = sorted(k for k in x if k in y and x[k] in LABELS and y[k] in LABELS)
     a, b = [x[k] for k in keys], [y[k] for k in keys]
     k = kappa(a, b)
+    counts = {f"{p}_{q}": sum(x == p and y == q for x, y in zip(a, b)) for p in LABELS for q in LABELS}
     return {"n": len(keys), "agreement": round(sum(p == q for p, q in zip(a, b)) / len(keys), 4) if keys else None,
-            "kappa": None if k is None else round(k, 4)}
+            "kappa": None if k is None else round(k, 4), "counts": counts}
 
 
 def calibrate(manifest_path: Path, rows: list[dict], human: dict) -> dict:
@@ -54,5 +55,7 @@ def calibrate(manifest_path: Path, rows: list[dict], human: dict) -> dict:
         raise CalibrationError(f"{labeled} human labeled cases with a vote, the sealed minimum is {cal['min_labels']}")
     ok = all(p["kappa"] is not None and p["kappa"] >= cal["min_kappa"] for p in pairs.values())
     errors = {n: sum(v not in LABELS for v in votes[n].values()) for n in names}
+    d = decide.decide(manifest_path, rows)
     return {"ok": ok, "min_kappa": cal["min_kappa"], "pairs": pairs, "judge_errors": errors,
-            "manifest_sha256": seal.digest(m)}
+            "decision": {"ok": d.ok, "pass_rate": round(d.value, 4), "counted": d.counted, "sentence": d.sentence},
+            "final": ok and d.ok, "manifest_sha256": seal.digest(m)}

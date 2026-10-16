@@ -37,6 +37,11 @@ class TestLiveHelper(unittest.TestCase):
             self.assertIn(canary, leak.read_text())
             self.assertFalse(any(canary in p.read_text() for p in (work / "runs" / "01_add_a" / "ws").rglob("*.py")))
             self.assertIn("claude-haiku-5-5", (work / "runs" / "91_planted_model" / "cmd.sh").read_text())
+            for run in runs:
+                self.assertNotIn("control", (work / "runs" / run / "prompt.txt").read_text().lower())
+            rubric = (ROOT / "examples" / "live" / "tasks" / "05_control" / "rubric.txt").read_text().lower()
+            self.assertNotIn("control", rubric)
+            self.assertNotIn("should fail", rubric)
             self.assertEqual(live("prepare", work, "--model", "x", "--other-model", "y").returncode, 1)
             for run in runs:
                 (work / "runs" / run / "trace.jsonl").write_text(TRACE)
