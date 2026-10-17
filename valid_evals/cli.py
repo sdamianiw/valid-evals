@@ -47,7 +47,9 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     (cases_dir / "human_queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in queue))
     d = decide.decide(manifest_path, rows)
     for r in rows:
-        print(f"{r['case']:<14} {'VALID' if r['valid'] else 'INVALID':<8} {r.get('cause') or r.get('verdict')}")
+        denied = len(r["details"].get("permission_denied", []))
+        print(f"{r['case']:<14} {'VALID' if r['valid'] else 'INVALID':<8} {r.get('cause') or r.get('verdict')}"
+              + (f"  ({denied} tool calls denied)" if denied else ""))
     pending = "calibration" in m
     print(json.dumps({"ok": d.ok, "pass_rate": round(d.value, 3), "interval95": d.interval,
                       "if_disagreements_failed_or_passed": [round(b, 3) for b in d.bounds],

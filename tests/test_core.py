@@ -19,7 +19,7 @@ FAKE_JUDGE = str(ROOT / "tests" / "fake_judge.py")
 
 def manifest(**over):
     m = {
-        "metric": "pass_rate", "comparator": ">=", "threshold": 0.8, "min_valid_cases": 3,
+        "metric": "pass_rate", "comparator": ">=", "threshold": 0.8, "min_valid_cases": 3, "max_excluded_fraction": 1,
         "outcome": {"pass": "Ship it: pass rate met the sealed bar.", "fail": "Do not ship: pass rate under the sealed bar."},
         "allowed_models": ["claude-sonnet-5-5"], "allowed_tools": ["Read", "Grep"],
         "canaries": ["CANARY-7f3a"], "require_bare": True,

@@ -16,7 +16,7 @@ JUDGE = str(Path(__file__).with_name("scripted_judge.py"))
 MODEL, CANARY = "claude-sonnet-5-5", "CANARY-7f3a"
 
 MANIFEST = {
-    "metric": "pass_rate", "comparator": ">=", "threshold": 0.8, "min_valid_cases": 3,
+    "metric": "pass_rate", "comparator": ">=", "threshold": 0.8, "min_valid_cases": 3, "max_excluded_fraction": 0.5,
     "outcome": {"pass": "Ship: the agent met the sealed bar on valid runs.",
                 "fail": "Do not ship: on valid runs the agent is under the sealed bar."},
     "allowed_models": [MODEL], "allowed_tools": ["Read", "Grep", "Edit"], "canaries": [CANARY], "require_bare": True,

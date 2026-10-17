@@ -8,8 +8,8 @@ import json
 import math
 from pathlib import Path
 
-REQUIRED = ("metric", "comparator", "threshold", "min_valid_cases", "outcome", "allowed_models", "allowed_tools",
-            "canaries", "require_bare", "judges")
+REQUIRED = ("metric", "comparator", "threshold", "min_valid_cases", "max_excluded_fraction", "outcome",
+            "allowed_models", "allowed_tools", "canaries", "require_bare", "judges")
 COMPARATORS = (">=", ">", "<=", "<")
 OPTIONAL = ("reference_paths", "trust_runner_model", "calibration")
 CALIBRATION = ("min_kappa", "min_labels", "max_judge_error_rate")
@@ -85,6 +85,8 @@ def validate(m: dict) -> None:
         raise SealError("threshold must be a number between 0 and 1")
     if not _count(m["min_valid_cases"]):
         raise SealError("min_valid_cases must be a positive integer")
+    if not _number(m["max_excluded_fraction"]) or not 0 <= m["max_excluded_fraction"] <= 1:
+        raise SealError("max_excluded_fraction must be a number between 0 and 1")
     if not isinstance(m["outcome"], dict) or set(m["outcome"]) != {"pass", "fail"} \
             or not all(isinstance(v, str) and v for v in m["outcome"].values()):
         raise SealError("outcome needs exactly a pass and a fail sentence")

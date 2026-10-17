@@ -50,6 +50,10 @@ def decide(manifest_path: Path, rows: list[dict]) -> Decision:
             excluded["judge_error"] += 1
         else:
             counted.append(r["verdict"] == "PASS")
+    left_out = len(rows) - len(counted)
+    if rows and left_out / len(rows) > m["max_excluded_fraction"]:  # dropping hard runs would lift the pass rate
+        raise DecisionError(f"{left_out} of {len(rows)} runs left out of the pass rate, the sealed maximum fraction "
+                            f"is {m['max_excluded_fraction']}")
     if len(counted) < m["min_valid_cases"]:
         raise DecisionError(f"{len(counted)} counted cases, the sealed minimum is {m['min_valid_cases']}")
     passes, n, k = sum(counted), len(counted), excluded["disagree"]

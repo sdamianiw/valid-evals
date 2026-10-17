@@ -95,6 +95,10 @@ was changed and the test output. Judges see only that: each judge runs in an emp
 case on stdin. The final message is the agent arguing its own case; keep that in mind when a judge passes a
 run the tests fail.
 
+A run whose tool calls were denied shows `(N tool calls denied)` next to it; it still counts. If more than a
+quarter of the runs are left out (invalid, split or judge error), `run` refuses to decide: the sealed
+`max_excluded_fraction` is 0.25, so the two planted runs plus one more fit and a fourth does not.
+
 Because the manifest seals a calibration block, `run` prints its decision as PROVISIONAL. The decision that
 counts comes from `calibrate`.
 

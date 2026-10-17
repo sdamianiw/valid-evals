@@ -7,6 +7,7 @@
 | `metric` | yes | `pass_rate` |
 | `comparator`, `threshold` | yes | for example `>=` and `0.8`; the threshold is between 0 and 1 |
 | `min_valid_cases` | yes | with fewer counted cases the decision is refused |
+| `max_excluded_fraction` | yes | between 0 and 1. If a larger share of runs is left out of the pass rate (invalid, split or judge error), the decision is refused, so dropping hard runs cannot lift the score |
 | `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentence printed for each result |
 | `allowed_models` | yes | model ids the trace must report; an alias matches its dated snapshots, a dated id only itself |
 | `allowed_tools` | yes | tool names as the trace shows them (Claude Code 2.1.301 logs `--tools Task` as `Agent`) |
@@ -23,7 +24,7 @@ Unknown keys, duplicate keys, NaN and Infinity are refused, so a typo cannot swi
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
-| `run` | rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, too few counted cases, bad input |
+| `run` | rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, too few counted cases, too many runs left out, bad input |
 | `calibrate` | jury calibrated and rule passed | jury calibrated, rule failed | refused: jury not calibrated, no calibration sealed, too few or bad labels, `results.jsonl` not from this rule, code and traces |
 | `check` | every trace valid | a trace is invalid | refused |
 

@@ -165,6 +165,8 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
             add("run_error", r.get("terminal_reason") or r.get("subtype") or "is_error")
         if agent and agent[-1] > results[0]:
             add("run_error", "agent events after the result")
+        for d in r.get("permission_denials") or []:  # reported, not a cause: the allowlist is the author's choice
+            add("permission_denied", f"{d.get('tool_name')}: {json.dumps(d.get('tool_input'), sort_keys=True)}")
 
     allowed_models = manifest["allowed_models"]
     if inits:

@@ -2,7 +2,9 @@
 
 Checks whether an AI agent's eval run was valid before its score counts. It reads traces your runner already
 wrote; it does not run agents. On 12 real Claude Code runs it flagged none of the 10 clean runs and caught both
-planted ones with the right cause.
+planted runs, which were built to be caught. The more useful finding: in 6 of the 10 clean runs the allowlist
+denied the agent's test command, so it never checked its own fix. Those runs still count, and the output now
+says so.
 
 An agent can pass an eval because the run used a different model, the agent read the answer key, someone typed a
 hint mid run, or the pass bar moved after the results came in. A judge that reads only the final answer sees none
@@ -12,10 +14,15 @@ of that. valid-evals adds three checks:
    hashed before any run. If it changes afterwards, the decision is refused.
 2. Each `claude -p` or `codex exec` trace is parsed, without calling a model, for a crash, MCP servers or host
    plugins, an unexpected model, a leaked answer key (canary strings, or a read of a sealed reference
-   path), a human turn, and tools outside the allowlist. An invalid run gets one cause and is left out.
+   path), a human turn, and tools outside the allowlist. An invalid run gets one cause and is left out. Tool
+   calls the runner denied are reported with the run.
 3. Two judges from different vendors grade each valid run, and a case counts only if they agree. Splits go to a
    person. If the manifest seals a calibration block, the decision stays provisional until the judges are
    compared with a sample you label yourself.
+
+Runs left out (invalid, split or judge error) never lift the score unchecked: if more than the sealed
+`max_excluded_fraction` of runs is left out, the decision is refused. Otherwise an agent that fails every hard
+task by running out of turns would score only on the easy ones.
 
 Python 3.10 or later, standard library only.
 
@@ -31,7 +38,7 @@ machine, because the sealed judge commands include the path to Python):
 
 <!-- demo-output -->
 ```
-seal: 286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8
+seal: 3d2709b5e6aba26fbb5dad56a5b1e12e25310e212f178175dc17c906a724b2a7
 naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
 
 01_clean       VALID    PASS
@@ -42,7 +49,7 @@ naive single judge pass rate: 0.875 (counts every run, trusts judge a alone)
 06_wrong_model INVALID  model_mismatch
 07_read_answer INVALID  reference_leak
 08_human_hint  INVALID  human_turn
-{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "286e64daab3dcd8023072ec8123a7fe645a09b2d7ea8a7d97676e467c9efa1c8", "results_sha256": "7e06165d61c7a9834fdaf3c2106f1dc530006a8a7919d2923061418e603a0cbd"}
+{"ok": false, "pass_rate": 0.75, "interval95": [0.3006, 0.9544], "if_disagreements_failed_or_passed": [0.6, 0.8], "counted": 4, "excluded": {"invalid": 3, "disagree": 1, "judge_error": 0}, "manifest_sha256": "3d2709b5e6aba26fbb5dad56a5b1e12e25310e212f178175dc17c906a724b2a7", "results_sha256": "a722242f0e50275832fe1110476111960359bfe100c05ed9e4c47d15176dd497"}
 Do not ship: on valid runs the agent is under the sealed bar.
 
 after editing the threshold to 0.7: exit 2 REFUSED: manifest changed after sealing; decision refused
@@ -61,6 +68,7 @@ wrong model run. Only the validity step was run; the judges were not.
 |---|---|
 | clean runs flagged invalid | 0 of 10 |
 | planted runs caught with the right cause | 2 of 2 (`reference_leak`, `model_mismatch`) |
+| clean runs whose test command was denied | 6 of 10 (the agent could not run the tests) |
 | agent cost | 0.0418 USD (0.0178 for 11 Haiku runs, 0.0240 for one Sonnet run) |
 
 All 12 runs passed the task's tests, including the run that read the answer key and the run on the wrong model.
@@ -96,7 +104,14 @@ Codex.
 - Builtin plugins are allowed, so a host plugin made to look builtin would pass.
 - Codex traces do not name the model; you either trust the runner or the run is invalid.
 - Only tools the agent called are checked, not tools it had available.
-- Kappa on a few labels is noise; report n with it.
+- The seal proves the manifest did not change after sealing. It does not prove when it was sealed, which cases
+  were run, or how many times: sealing after a look, sealing several rules and keeping the best, or deleting a
+  case folder are not detected. A commit pushed before the runs is the only timestamp.
+- Both planted runs in the real results were built to be caught (the leak prompt points at the reference
+  folder, the wrong model is a CLI flag). They show the parser reads real traces, not that real cheating is
+  caught.
+- Kappa on a few labels is noise. With 6 balanced labels and a sealed minimum of 0.6, a judge that is right 80%
+  of the time passes calibration in about two of three tries. Report n and the counts with it.
 
 More in [docs/PREMORTEM_v0.2.md](docs/PREMORTEM_v0.2.md) and [docs/REDTEAM_v0.3.md](docs/REDTEAM_v0.3.md).
 
@@ -107,7 +122,7 @@ judges against human labels with Cohen's kappa. valid-evals applies them before 
 
 ## Status
 
-v0.3.1. The offline demo and the test suite pass on Python 3.10 to 3.13 in CI. Real Claude Code 2.1.301 and Codex CLI
+v0.4.0. The offline demo and the test suite pass on Python 3.10 to 3.13 in CI. Real Claude Code 2.1.301 and Codex CLI
 0.163.0 traces, redacted, pin the trace formats. The demo figures are synthetic. Judge agreement on real runs
 has not been measured yet.
 
