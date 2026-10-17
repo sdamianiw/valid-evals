@@ -86,8 +86,8 @@ def validate(m: dict) -> None:
         raise SealError("threshold must be a number between 0 and 1")
     if not _count(m["min_valid_cases"]):
         raise SealError("min_valid_cases must be a positive integer")
-    if not _number(m["max_excluded_fraction"]) or not 0 <= m["max_excluded_fraction"] <= 1:
-        raise SealError("max_excluded_fraction must be a number between 0 and 1")
+    if not _number(m["max_excluded_fraction"]) or not 0 <= m["max_excluded_fraction"] < 1:
+        raise SealError("max_excluded_fraction must be a number in [0, 1): 1 would switch the limit off")
     if not isinstance(m["outcome"], dict) or set(m["outcome"]) != {"pass", "fail"} \
             or not all(isinstance(v, str) and v for v in m["outcome"].values()):
         raise SealError("outcome needs exactly a pass and a fail sentence")
@@ -113,8 +113,10 @@ def validate(m: dict) -> None:
     if judges[0]["cmd"] == judges[1]["cmd"]:
         raise SealError("the two judges run the same command: that is one judge")
     refs = m.get("reference_paths", [])
-    if not isinstance(refs, list) or not all(isinstance(r, str) and r.strip("/\\") for r in refs):
-        raise SealError("reference_paths must be a list of non empty path fragments")
+    if not isinstance(refs, list) or not all(isinstance(r, str) and r.strip("/\\") and r == r.strip()
+                                             and not r.startswith(("/", "\\", "./", ".\\")) for r in refs):
+        # an absolute or ./ fragment never matches the relative path an agent types
+        raise SealError("reference_paths must be relative path fragments such as reference/, without spaces around")
     cal = m.get("calibration")
     if cal is not None and not (isinstance(cal, dict) and set(cal) == set(CALIBRATION) and _number(cal.get("min_kappa"))
                                 and 0 <= cal["min_kappa"] <= 1 and _count(cal.get("min_labels"))

@@ -69,7 +69,7 @@ def _model_ok(model, allowed: list[str]) -> bool:
 
 
 # text the agent writes or explains, not a location it reads: a path mentioned here is not a read
-PROSE_KEYS = frozenset({"content", "new_string", "old_string", "description", "prompt"})
+PROSE_KEYS = frozenset({"content", "new_string", "old_string", "description", "prompt", "activeForm", "query"})
 _BEFORE = r"(?:^|(?<=[\s/\"'=:(<>|;&,`{]))"
 _AFTER = r"(?=/|$|[\s\"'):;|&>,`}])"
 
@@ -186,6 +186,9 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
     # claude -p does not echo the prompt; when a runner does, it comes before the first assistant message
     prompt_slot = True
     tool_ids = set()  # a subagent event names a tool_use seen earlier; any other parent id hides nothing
+    denied = {d.get("tool_use_id") for e in events if e.get("type") == "result"
+              for d in (e.get("permission_denials") if isinstance(e.get("permission_denials"), list) else [])
+              if isinstance(d, dict)}  # a denied call never ran, so it used no tool
     for ev in events:
         if ev.get("type") == "assistant":
             prompt_slot = False
@@ -198,7 +201,7 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
             for block in _content(ev) or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     tool_ids.add(block.get("id"))
-                    if block.get("name") not in manifest["allowed_tools"]:
+                    if block.get("name") not in manifest["allowed_tools"] and block.get("id") not in denied:
                         add("tool_not_allowed", block.get("name"))
                     inp = block.get("input")
                     if block.get("name") == "Grep" and isinstance(inp, dict):

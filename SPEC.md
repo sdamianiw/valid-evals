@@ -1,4 +1,4 @@
-# valid-evals SPEC v0.4.0
+# valid-evals SPEC v0.5.0
 
 ## Goal
 An agent eval can pass for the wrong reasons: the run used another model, read the answer key, got help from a
@@ -70,6 +70,9 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 22 | Runs that crash, run out of turns or split the jury are dropped, so hard tasks vanish and the rate rises | sealed max_excluded_fraction; above it the decision is refused |
 | 23 | The runner denied the agent's test command, so it never checked its work | denials reported in details and next to the run; not a cause, the allowlist is the author's setting |
 | 24 | The rule is sealed after looking at the runs, or sealed again after deleting the lock | the lock records sealed_at; run and calibrate refuse a trace event older than it (local clocks, Claude traces only) |
+| 25 | A reference path written as absolute or ./ never matches what the agent types | refused at seal |
+| 26 | A denied call counted as a tool the agent used | denied tool_use ids are not tool_not_allowed |
+| 27 | Judges paid for a decision that will be refused | no judge calls when the invalid share alone exceeds the limit |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs

@@ -36,11 +36,14 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     cases = sorted(p for p in cases_dir.iterdir() if p.is_dir())
     for case in cases:  # before any judge call: a run older than the rule never counts
         seal.check_started_after(manifest_path, case.name, (case / "trace.jsonl").read_text(encoding="utf-8"))
-    for case in cases:
-        # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
-        row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl",
-               "manifest_sha256": seal.digest(m), "code_sha256": seal.code_digest()}
-        if row["valid"]:
+    # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
+    checked = [(case, {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl",
+                       "manifest_sha256": seal.digest(m), "code_sha256": seal.code_digest()}) for case in cases]
+    invalid = sum(not r["valid"] for _, r in checked)
+    # too many invalid runs: decide refuses whatever the judges say, so spend no judge calls
+    ask = not (cases and invalid / len(cases) > m["max_excluded_fraction"])
+    for case, row in checked:
+        if row["valid"] and ask:
             j = jury.judge((case / "case.txt").read_text(encoding="utf-8"), m["judges"])
             row.update(verdict=j.verdict, votes=j.votes)
             if j.verdict == "DISAGREE":

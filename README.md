@@ -73,8 +73,8 @@ wrong model run. Only the validity step was run; the judges were not.
 All 12 runs passed the task's tests, including the run that read the answer key and the run on the wrong model:
 a pass rate alone would have counted both. Scope: short runs, and planted cheats made to be visible, so this
 shows the checks work on real traces; ten clean runs do not yet give a false alarm rate. Traces are in
-`tests/fixtures/live_2026_10_16`; `tests/test_live_results.py` reproduces each figure in the table, and the test
-results are recorded in the fixture README.
+`tests/fixtures/live_2026_10_16`; `tests/test_live_results.py` reproduces each figure in the table. The test
+results of the final `app.py` files were recorded in the fixture README at the time; those files are not kept.
 
 ## Measuring the checker
 
@@ -104,16 +104,17 @@ forms, so the table measures coverage, not recall on cheating nobody has seen ye
 
 Run from the repo root, or put it on `PYTHONPATH`.
 
-1. Write `manifest.json` ([fields](docs/REFERENCE.md#manifest-fields)) and seal it with
-   `python3 -m valid_evals seal manifest.json`. Commit `manifest.lock` before any run.
-2. Plant a canary string in every file the agent must not read, and list where those files live in
-   `reference_paths`.
+1. Plant a canary string in every file the agent must not read.
+2. Write `manifest.json` ([fields](docs/REFERENCE.md#manifest-fields)) with those canaries, the relative folder
+   they live in as `reference_paths`, and a `calibration` block if you will label a sample (step 6). Seal it
+   with `python3 -m valid_evals seal manifest.json` and commit `manifest.lock` before any run.
 3. Run the agent and save its `--output-format stream-json --verbose` trace to `cases/01/trace.jsonl`
    ([example command](docs/REFERENCE.md#running-the-agent)).
 4. Write what the judges grade to `cases/01/case.txt`: task, rubric, the agent's final output.
 5. `python3 -m valid_evals run manifest.json cases/` checks each trace and asks the jury about the valid ones.
-6. Label a sample yourself, then `python3 -m valid_evals calibrate manifest.json cases/ labels.json` gives the
-   final decision.
+6. With a sealed calibration block, label a sample yourself, then
+   `python3 -m valid_evals calibrate manifest.json cases/ labels.json` gives the final decision. Without one,
+   the decision from `run` is final.
 
 [docs/REFERENCE.md](docs/REFERENCE.md) covers exit codes, judge commands, Codex traces and calibration.
 [docs/LIVE_DEMO.md](docs/LIVE_DEMO.md) is a runbook for reproducing the real runs with your own Claude Code and
@@ -121,19 +122,23 @@ Codex.
 
 ## Limits
 
+Threat model: the trace checks defend against the agent, which cannot edit its own trace. The seal, its time
+and the excluded share protect the person running the eval from their own mistakes and second looks; someone
+who edits the lock, the traces or the case folders on purpose needs an outside record, such as a public commit
+made before the runs.
+
 - A canary read in transformed form (base64, a paraphrase) is caught only if the read names a sealed reference
-  path, and a glob such as `cat ref*/s*` or a path the shell builds gets past the path check.
+  path, and a glob such as `cat ref*/s*`, shell quoting such as `ref''erence`, or a path the shell builds gets
+  past the path check.
 - A shell command that contains the reference folder name as a plain word, such as `grep -n reference app.py`,
   makes the run invalid. That errs toward refusing.
 - The trace does not show hooks, CLAUDE.md, or whether `--bare` or `--restricted` was used.
 - Builtin plugins are allowed, so a host plugin made to look builtin would pass.
 - Codex traces do not name the model; you either trust the runner or the run is invalid.
 - Only tools the agent called are checked, not tools it had available.
-- The seal and its time use the local clock: they stop a rule changed, or sealed after the runs, by mistake;
-  not someone who sets the clock back. For an outside timestamp, push `manifest.lock` to a public remote before
-  the runs. Codex traces carry no timestamps.
-- One seal covers one rule and the cases you give it; choosing among several sealed rules is visible only in
-  your history.
+- The seal time uses the local clock and is checked only on traces with timestamps (Claude Code has them,
+  Codex does not).
+- Vendor names are declared in the manifest, not checked; two judges must differ in name, vendor and command.
 - Calibration on a handful of labels is a smoke check; seal `min_labels` to match the stakes and report n with
   kappa (exact pass odds in `tests/test_v04.py`).
 
@@ -144,13 +149,14 @@ More in [docs/PREMORTEM_v0.2.md](docs/PREMORTEM_v0.2.md) and [docs/REDTEAM_v0.3.
 valid-evals builds on known ideas: pre-registration, canary strings (BIG-bench), transcript scanners for reward
 hacking (Inspect Scout, Docent) and judge panels from different model families (PoLL). It joins them at the
 moment a score is accepted, as gates that refuse instead of guessing: a hash sealed rule, a deterministic
-validity check that removes runs before scoring, and two vendors that must agree. Scanners find suspicious
-transcripts; valid-evals decides which runs count, so the two work together. Sources in
+validity check that removes runs before scoring, and two vendors that must agree. Transcript scanners and
+valid-evals answer different questions (what looks suspicious, and which runs may count), so they can be used
+together. Sources in
 [docs/PRIOR_ART.md](docs/PRIOR_ART.md).
 
 ## Status
 
-v0.4.0. The offline demo and the test suite pass on Python 3.10 to 3.13 in CI. Real Claude Code 2.1.301 and Codex CLI
+v0.5.0. The offline demo and the test suite pass on Python 3.10 to 3.13 in CI. Real Claude Code 2.1.301 and Codex CLI
 0.163.0 traces, redacted, pin the trace formats. The demo figures are synthetic. Judge agreement on real runs
 has not been measured yet.
 

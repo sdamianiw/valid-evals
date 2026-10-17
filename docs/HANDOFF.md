@@ -15,7 +15,7 @@ Open decisions.
 
 ## State (2026 10 17)
 
-- v0.4.0 on `main`. The sealed `max_excluded_fraction` (required) refuses a decision when too many runs are left
+- v0.5.0 on `main` (lock now holds sealed_at). The sealed `max_excluded_fraction` (required) refuses a decision when too many runs are left
   out; denied tool calls are reported per run. CI on 3.10 to 3.13. `valid_evals.__version__` is the version of record.
 - Modules: seal, validity (Claude stream-json and Codex `exec --json`), jury, decide, calibrate, cli.
 - Docs: README (short), docs/REFERENCE.md, docs/LIVE_DEMO.md, docs/PREMORTEM_v0.2.md, docs/REDTEAM_v0.3.md.
@@ -81,6 +81,9 @@ Exact calibration power, pinned in tests/test_v04.py: with 3 pass and 3 fail lab
 right 60%, 80% or 90% of the time passes with probability 0.233, 0.655 or 0.886.
 
 ## Lessons
+
+- Sort red team findings by adversary before fixing. Agent side gaps get code; deliberate edits by the person
+  running the eval get one line of threat model, since only an outside record stops them.
 
 - A mutation corpus over real traces found three bugs that three review rounds missed (brace expansion, a made
   up parent id hiding a human turn, Grep pattern read as a path). Measure the checker before hardening it more.

@@ -7,14 +7,14 @@
 | `metric` | yes | `pass_rate` |
 | `comparator`, `threshold` | yes | for example `>=` and `0.8`; the threshold is between 0 and 1 |
 | `min_valid_cases` | yes | with fewer counted cases the decision is refused |
-| `max_excluded_fraction` | yes | between 0 and 1. If a larger share of runs is left out of the pass rate (invalid, split or judge error), the decision is refused. Dropping runs can still lift the score, but only within that share |
+| `max_excluded_fraction` | yes | at least 0 and below 1 (1 would switch the limit off). If a larger share of runs is left out of the pass rate (invalid, split or judge error), the decision is refused. Dropping runs can still lift the score, but only within that share |
 | `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentence printed for each result |
 | `allowed_models` | yes | model ids the trace must report; an alias matches its dated snapshots, a dated id only itself |
 | `allowed_tools` | yes | tool names as the trace shows them (Claude Code 2.1.301 logs `--tools Task` as `Agent`) |
 | `canaries` | yes | at least one string, planted in every reference file |
 | `require_bare` | yes | `true`: an MCP server, or a plugin that is not one of the CLI's builtin plugins, makes the run invalid |
 | `judges` | yes | two judges with different names, vendors and commands, each `{"name", "vendor", "cmd": [...]}` |
-| `reference_paths` | no | path fragments; a tool call that names one as whole path segments is a leak. Case folded, `\` read as `/`, prose fields such as `content` or `description` skipped |
+| `reference_paths` | no | relative path fragments such as `reference/` (an absolute or `./` fragment is refused, it would never match); a tool call that names one as whole path segments is a leak. Case folded, `\` read as `/`, prose fields such as `content` or `description` skipped |
 | `trust_runner_model` | no | `true` accepts Codex runs, whose trace names no model |
 | `calibration` | no | `{"min_kappa", "min_labels", "max_judge_error_rate"}`; `run` stays provisional until `calibrate` passes |
 
@@ -27,6 +27,7 @@ Unknown keys, duplicate keys, NaN and Infinity are refused, so a typo cannot swi
 | `run` | rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, a run older than the seal, too few counted cases, too many runs left out, bad input |
 | `calibrate` | jury calibrated and rule passed | jury calibrated, rule failed | refused: jury not calibrated, no calibration sealed, too few or bad labels, `results.jsonl` not from this rule, code and traces |
 | `check` | every trace valid | a trace is invalid | refused |
+| `seal` | sealed, or the same rule already sealed | (unused) | refused: bad manifest, or the lock holds another rule |
 
 ## Running the agent
 
