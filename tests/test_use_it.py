@@ -16,9 +16,10 @@ CANARY = "CANARY-use-it-1f2e"
 
 
 def step(cwd, *args):
-    env = {**os.environ, "PYTHONPATH": str(ROOT)}
+    # cp1252 is what a Windows console or pipe gives Python; it cannot show most non Latin text
+    env = {**os.environ, "PYTHONPATH": str(ROOT), "PYTHONIOENCODING": "cp1252"}
     p = subprocess.run([sys.executable, "-m", "valid_evals", *args], cwd=cwd, env=env, capture_output=True,
-                       text=True, encoding="utf-8")
+                       text=True, encoding="cp1252")
     return p.returncode, p.stdout + p.stderr
 
 
@@ -35,7 +36,7 @@ def trace(model="claude-sonnet-5-5", read="src/app.py"):
 
 class TestUseIt(unittest.TestCase):
     def test_the_readme_steps_work_from_another_folder(self):
-        work = Path(tempfile.mkdtemp())
+        work = Path(tempfile.mkdtemp(prefix="use it "))  # a space in the path, as in many home folders
         # 1. plant a canary in the files the agent must not read
         (work / "reference").mkdir()
         (work / "reference" / "solution.py").write_text(f"# {CANARY}\n", encoding="utf-8")
@@ -52,7 +53,7 @@ class TestUseIt(unittest.TestCase):
         self.assertEqual(step(work, "seal", "manifest.json")[0], 0)
         # 3 and 4. one trace and one case.txt per run; text that is not ASCII must survive the judges
         runs = {"01": ("pass", "pass", trace()), "02": ("pass", "pass", trace()), "03": ("fail", "fail", trace()),
-                "04": ("pass", "pass", trace()), "05": ("pass", "pass", trace(read="reference/solution.py"))}
+                "04_\u4f60\u597d": ("pass", "pass", trace()), "05": ("pass", "pass", trace(read="reference/solution.py"))}
         for name, (a, b, t) in runs.items():
             c = work / "cases" / name
             c.mkdir(parents=True)
@@ -64,10 +65,21 @@ class TestUseIt(unittest.TestCase):
         self.assertIn("05             INVALID  reference_leak", out)
         self.assertIn('"counted": 4', out)
         # 6. label blind, then calibrate gives the final decision
-        (work / "labels.json").write_text(json.dumps({"01": "pass", "02": "pass", "03": "fail", "04": "pass"}),
+        (work / "labels.json").write_text(json.dumps({"01": "pass", "02": "pass", "03": "fail", "04_\u4f60\u597d": "pass"}),
                                           encoding="utf-8")
         code, out = step(work, "calibrate", "manifest.json", "cases", "labels.json")
         self.assertEqual(code, 0, out)
+
+
+class TestJudgeBytes(unittest.TestCase):
+    def test_a_judge_that_prints_bytes_that_are_not_utf8_is_an_error_not_a_crash(self):
+        sys.path.insert(0, str(ROOT))
+        from valid_evals import jury
+        bad = [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff\\xfe{\"verdict\": \"pass\"}')"]
+        good = [sys.executable, JUDGE, "a"]
+        r = jury.judge("añadir\ndemo-votes: a=pass b=pass\n",
+                       [{"name": "a", "vendor": "x", "cmd": good}, {"name": "b", "vendor": "y", "cmd": bad}])
+        self.assertEqual(r.votes["b"], "error")
 
 
 if __name__ == "__main__":

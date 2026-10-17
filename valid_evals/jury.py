@@ -27,8 +27,10 @@ def _strict(pairs):
 def _vote(judge: dict, case_text: str) -> str:
     try:
         with tempfile.TemporaryDirectory() as empty:  # a judge sees the case on stdin and nothing else
-            proc = subprocess.run(judge["cmd"], input=case_text, capture_output=True, text=True, timeout=TIMEOUT_S,
-                                  cwd=empty)
+            # UTF-8 both ways whatever the locale (Windows defaults to cp1252); bytes that do not decode
+            # become U+FFFD, so the vote fails to parse and counts as an error instead of a crash
+            proc = subprocess.run(judge["cmd"], input=case_text, capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=TIMEOUT_S, cwd=empty)
     except (OSError, subprocess.TimeoutExpired):
         return "error"
     if proc.returncode != 0:

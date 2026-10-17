@@ -51,7 +51,8 @@ the results.
 
 ## Judges
 
-A judge is any command that reads the case on stdin and prints `{"verdict": "pass"}` or `{"verdict": "fail"}`. It
+A judge is any command that reads the case on stdin and prints `{"verdict": "pass"}` or `{"verdict": "fail"}`.
+Both directions are UTF-8, whatever the system locale. It
 runs in an empty temporary directory, so it sees only the case. Its output is read as one JSON value, or else as
 its last line. The output of `claude -p --output-format json --json-schema` is understood through its
 `structured_output` field, a shape pinned by a real call in `tests/fixtures`.

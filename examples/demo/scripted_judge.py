@@ -5,5 +5,5 @@ import re
 import sys
 
 name = sys.argv[1]
-votes = dict(re.findall(r"(\w+)=(pass|fail)", re.search(r"demo-votes:(.*)", sys.stdin.read()).group(1)))
+votes = dict(re.findall(r"(\w+)=(pass|fail)", re.search(r"demo-votes:(.*)", sys.stdin.buffer.read().decode("utf-8")).group(1)))
 print(json.dumps({"verdict": votes[name]}))

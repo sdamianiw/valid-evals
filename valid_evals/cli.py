@@ -68,6 +68,9 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
 
 
 def main(argv=None) -> int:
+    for stream in (sys.stdout, sys.stderr):  # a cp1252 console cannot show every case name; never crash on it
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     ap = argparse.ArgumentParser(prog="valid-evals")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("seal").add_argument("manifest", type=Path)
