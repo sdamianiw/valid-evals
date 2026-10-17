@@ -2,7 +2,7 @@
 
 Checks whether an AI agent's eval run was valid before its score counts. It reads traces your runner already
 wrote; it does not run agents. On 12 real Claude Code runs it flagged none of the 10 clean runs and caught both
-planted runs, which were built to be caught. The more useful finding: in 6 of the 10 clean runs the allowlist
+planted runs, which were built to be caught. The more useful finding: in 6 of the 10 clean runs the runner
 denied the agent's test command, so it never checked its own fix. Those runs still count, and the output now
 says so.
 
@@ -15,13 +15,13 @@ of that. valid-evals adds three checks:
 2. Each `claude -p` or `codex exec` trace is parsed, without calling a model, for a crash, MCP servers or host
    plugins, an unexpected model, a leaked answer key (canary strings, or a read of a sealed reference
    path), a human turn, and tools outside the allowlist. An invalid run gets one cause and is left out. Tool
-   calls the runner denied are reported with the run.
+   calls that Claude Code reports as denied are listed with the run.
 3. Two judges from different vendors grade each valid run, and a case counts only if they agree. Splits go to a
    person. If the manifest seals a calibration block, the decision stays provisional until the judges are
    compared with a sample you label yourself.
 
-Runs left out (invalid, split or judge error) never lift the score unchecked: if more than the sealed
-`max_excluded_fraction` of runs is left out, the decision is refused. Otherwise an agent that fails every hard
+Runs left out (invalid, split or judge error) can lift the score only within a sealed share: if more than
+`max_excluded_fraction` of the runs is left out, the decision is refused. Otherwise an agent that fails every hard
 task by running out of turns would score only on the easy ones.
 
 Python 3.10 or later, standard library only.
@@ -77,6 +77,30 @@ the checks work on real traces. Ten clean runs are too few to estimate a false a
 `tests/fixtures/live_2026_10_16`; `tests/test_live_results.py` reproduces each figure in the table, and the test
 results are recorded in the fixture README.
 
+## Measuring the checker
+
+`tests/mutations.py` takes 13 real traces that pass, injects each failure in several forms (for example a
+leak by Read, Bash, Grep, Glob, an escaped canary or a brace expansion), and adds harmless changes that must
+stay valid. `python3 tests/mutations.py` prints the table; `tests/test_mutations.py` pins it.
+
+| Cause | Injected | Caught |
+|---|---|---|
+| run_error | 104 | 104 |
+| isolation_breach | 65 | 65 |
+| model_mismatch | 65 | 65 |
+| model_unverified | 39 | 39 |
+| reference_leak | 234 | 169 |
+| human_turn | 91 | 91 |
+| tool_not_allowed | 65 | 65 |
+| harmless changes flagged (false alarms) | 182 | 13 |
+
+The corpus found three bugs, fixed in v0.4.0: a brace expansion such as `cat {reference,docs}/x` got past the
+path check, a user message with a made up `parent_tool_use_id` hid a human turn, and a Grep for the word
+`reference` was read as a path. The 65 missed leaks are 5 forms the checker cannot see by design: glob
+wildcards, a path the shell builds at run time, a base64 canary and a canary split across two text blocks. The
+13 false alarms are one form: a shell command that contains the folder name as a plain word. The forms were
+written by the author of the checker, so this measures coverage of known forms, not recall on real cheating.
+
 ## Use it
 
 Run from the repo root, or put it on `PYTHONPATH`.
@@ -99,7 +123,9 @@ Codex.
 ## Limits
 
 - A canary read in transformed form (base64, a paraphrase) is caught only if the read names a sealed reference
-  path, and a glob such as `cat ref*/s*` gets past the path check.
+  path, and a glob such as `cat ref*/s*` or a path the shell builds gets past the path check.
+- A shell command that contains the reference folder name as a plain word, such as `grep -n reference app.py`,
+  makes the run invalid. That errs toward refusing.
 - The trace does not show hooks, CLAUDE.md, or whether `--bare` or `--restricted` was used.
 - Builtin plugins are allowed, so a host plugin made to look builtin would pass.
 - Codex traces do not name the model; you either trust the runner or the run is invalid.

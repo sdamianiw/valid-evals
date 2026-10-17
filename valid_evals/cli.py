@@ -8,7 +8,8 @@
                                                  ({"case": "pass"|"fail"}), gated by the sealed minimum kappa
 
 Exit codes: 0 sealed rule passed, 1 sealed rule failed or still provisional (calibration sealed, `calibrate` gives
-the final decision), 2 refused (broken seal, too few valid cases, bad input). `check`: 0 all valid, 1 any invalid.
+the final decision), 2 refused (broken seal, too few valid cases, too many runs left out,
+bad input). `check`: 0 all valid, 1 any invalid.
 """
 
 from __future__ import annotations
@@ -45,11 +46,11 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     results = "".join(json.dumps(r) + "\n" for r in rows)
     (cases_dir / "results.jsonl").write_text(results)
     (cases_dir / "human_queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in queue))
-    d = decide.decide(manifest_path, rows)
-    for r in rows:
+    for r in rows:  # printed before deciding, so a refused decision still shows each run
         denied = len(r["details"].get("permission_denied", []))
         print(f"{r['case']:<14} {'VALID' if r['valid'] else 'INVALID':<8} {r.get('cause') or r.get('verdict')}"
               + (f"  ({denied} tool calls denied)" if denied else ""))
+    d = decide.decide(manifest_path, rows)
     pending = "calibration" in m
     print(json.dumps({"ok": d.ok, "pass_rate": round(d.value, 3), "interval95": d.interval,
                       "if_disagreements_failed_or_passed": [round(b, 3) for b in d.bounds],

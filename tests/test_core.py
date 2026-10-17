@@ -116,8 +116,9 @@ class TestValidity(unittest.TestCase):
         self.assertEqual(self.check(trace(events=[human])).cause, "human_turn")
 
     def test_subagent_prompt_is_not_a_human_turn(self):
-        sub = {"type": "user", "parent_tool_use_id": "agent1", "message": {"role": "user", "content": "subtask"}}
-        self.assertTrue(self.check(trace(events=[sub])).valid)
+        # as in the real 2.1.301 trace, the subagent prompt names the tool_use that started it
+        sub = {"type": "user", "parent_tool_use_id": "t1", "message": {"role": "user", "content": "subtask"}}
+        self.assertTrue(self.check(trace(events=[tool_use("Read", {"file_path": "a.py"}), sub])).valid)
 
     def test_tool_outside_allowlist(self):
         self.assertEqual(self.check(trace(events=[tool_use("Bash", {"command": "ls"})])).cause, "tool_not_allowed")

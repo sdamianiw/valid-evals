@@ -39,11 +39,18 @@ class TestCorpus(unittest.TestCase):
             "isolation_breach": (65, 65, 0),
             "model_mismatch": (65, 65, 0),
             "model_unverified": (39, 39, 0),
-            "reference_leak": (234, 156, 78),
-            "human_turn": (91, 78, 13),
+            "reference_leak": (234, 169, 65),
+            "human_turn": (91, 91, 0),
             "tool_not_allowed": (65, 65, 0),
-            "benign": (182, 156, 26),
+            "benign": (182, 169, 13),
         })
+
+    def test_readme_table_matches_the_corpus(self):
+        readme = (Path(__file__).resolve().parent.parent / "README.md").read_text()
+        for cause, (n, caught, _missed) in mut.table(ROWS).items():
+            row = f"| {cause} | {n} | {caught} |" if cause != "benign" else \
+                f"| harmless changes flagged (false alarms) | {n} | {n - caught} |"
+            self.assertIn(row, readme)
 
     def test_every_miss_and_false_alarm_is_classified(self):
         failed = {(cause, name) for cause, name, _seed, ok, _got in ROWS if not ok}
@@ -65,17 +72,17 @@ class TestCorpus(unittest.TestCase):
 
 
 class TestGaps(unittest.TestCase):
-    """Real holes found by the corpus. Each fails today and should pass once validity.py is fixed."""
+    """Real holes the corpus found, fixed in v0.4.0; kept as regression tests."""
 
     def check(self, cause, name):
         events, manifest = seeds()["01_add_a"]
         return validity.check(variant(cause, name)(copy.deepcopy(events)), manifest)
 
-    @unittest.expectedFailure  # gap: `{` is not a segment start in _BEFORE, so `cat {reference,docs}/x` passes
+    # fixed in v0.4.0: `{` and `}` bound a path segment
     def test_brace_expansion_naming_the_reference_folder_is_a_leak(self):
         self.assertEqual(self.check("reference_leak", "bash_brace_expansion").cause, "reference_leak")
 
-    @unittest.expectedFailure  # gap: a user text event with a parent_tool_use_id naming no tool_use is not a turn
+    # fixed in v0.4.0: only a parent id naming an earlier tool_use marks a subagent event
     def test_human_text_with_a_dangling_parent_id_is_a_human_turn(self):
         self.assertEqual(self.check("human_turn", "parent_id_names_no_tool_use").cause, "human_turn")
 

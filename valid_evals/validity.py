@@ -70,8 +70,8 @@ def _model_ok(model, allowed: list[str]) -> bool:
 
 # text the agent writes or explains, not a location it reads: a path mentioned here is not a read
 PROSE_KEYS = frozenset({"content", "new_string", "old_string", "description", "prompt"})
-_BEFORE = r"(?:^|(?<=[\s/\"'=:(<>|;&,`]))"
-_AFTER = r"(?=/|$|[\s\"'):;|&>,`])"
+_BEFORE = r"(?:^|(?<=[\s/\"'=:(<>|;&,`{]))"
+_AFTER = r"(?=/|$|[\s\"'):;|&>,`}])"
 
 
 def _tool_strings(obj):
@@ -165,8 +165,11 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
             add("run_error", r.get("terminal_reason") or r.get("subtype") or "is_error")
         if agent and agent[-1] > results[0]:
             add("run_error", "agent events after the result")
-        for d in r.get("permission_denials") or []:  # reported, not a cause: the allowlist is the author's choice
-            add("permission_denied", f"{d.get('tool_name')}: {json.dumps(d.get('tool_input'), sort_keys=True)}")
+        denials = r.get("permission_denials")
+        for d in denials if isinstance(denials, list) else []:  # reported, not a cause: the runner's own setting
+            if isinstance(d, dict):  # the tool_use_id keeps two identical denials apart
+                add("permission_denied", f"{d.get('tool_use_id')} {d.get('tool_name')}: "
+                                         f"{json.dumps(d.get('tool_input'), sort_keys=True)}")
 
     allowed_models = manifest["allowed_models"]
     if inits:
@@ -182,6 +185,7 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
     served = False
     # claude -p does not echo the prompt; when a runner does, it comes before the first assistant message
     prompt_slot = True
+    tool_ids = set()  # a subagent event names a tool_use seen earlier; any other parent id hides nothing
     for ev in events:
         if ev.get("type") == "assistant":
             prompt_slot = False
@@ -193,10 +197,14 @@ def _claude_findings(events: list[dict], manifest: dict, add) -> None:
                     add("model_mismatch", {"message": msg_model})
             for block in _content(ev) or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
+                    tool_ids.add(block.get("id"))
                     if block.get("name") not in manifest["allowed_tools"]:
                         add("tool_not_allowed", block.get("name"))
-                    reference_paths(block.get("input"), manifest, add)
-        elif ev.get("type") == "user" and not ev.get("parent_tool_use_id") and _is_human(ev):
+                    inp = block.get("input")
+                    if block.get("name") == "Grep" and isinstance(inp, dict):
+                        inp = {k: v for k, v in inp.items() if k != "pattern"}  # a regex over contents, not a path
+                    reference_paths(inp, manifest, add)
+        elif ev.get("type") == "user" and ev.get("parent_tool_use_id") not in tool_ids and _is_human(ev):
             if prompt_slot:
                 prompt_slot = False
             else:

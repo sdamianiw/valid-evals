@@ -7,7 +7,7 @@
 | `metric` | yes | `pass_rate` |
 | `comparator`, `threshold` | yes | for example `>=` and `0.8`; the threshold is between 0 and 1 |
 | `min_valid_cases` | yes | with fewer counted cases the decision is refused |
-| `max_excluded_fraction` | yes | between 0 and 1. If a larger share of runs is left out of the pass rate (invalid, split or judge error), the decision is refused, so dropping hard runs cannot lift the score |
+| `max_excluded_fraction` | yes | between 0 and 1. If a larger share of runs is left out of the pass rate (invalid, split or judge error), the decision is refused. Dropping runs can still lift the score, but only within that share |
 | `outcome` | yes | `{"pass": "...", "fail": "..."}`, the sentence printed for each result |
 | `allowed_models` | yes | model ids the trace must report; an alias matches its dated snapshots, a dated id only itself |
 | `allowed_tools` | yes | tool names as the trace shows them (Claude Code 2.1.301 logs `--tools Task` as `Agent`) |

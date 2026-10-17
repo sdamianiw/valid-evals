@@ -51,7 +51,7 @@ Open decisions.
 | 1 | Exclusions cannot lift the score: sealed `max_excluded_fraction`, refuse above it | agent | done, v0.4.0 |
 | 2 | README leads with the denied tests finding; limits of seal, planted runs, calibration power | agent | done, v0.4.0 |
 | 3 | Run the jury live (Max login plus Codex), label blind | author | waiting |
-| 4 | Mutation corpus: per cause recall and false alarms, pinned by a test | agent | in progress |
+| 4 | Mutation corpus: per cause recall and false alarms, pinned by a test | agent | done: 3 bugs fixed, table in README |
 | 5 | Per run footprint (files changed, test file touched) in details | agent | later, after 4 |
 
 Out of scope for now: a `drift` metric over snapshots, an external timestamp for the lock, more Codex work.
@@ -76,6 +76,11 @@ Exact calibration power, pinned in tests/test_v04.py: with 3 pass and 3 fail lab
 right 60%, 80% or 90% of the time passes with probability 0.233, 0.655 or 0.886.
 
 ## Lessons
+
+- A mutation corpus over real traces found three bugs that three review rounds missed (brace expansion, a made
+  up parent id hiding a human turn, Grep pattern read as a path). Measure the checker before hardening it more.
+- A synthetic test can encode the bug: the old subagent test used a parent id that named no tool_use. Shape
+  synthetic events after a real fixture.
 
 - A fix for recall needs a false alarm test in the same commit. The round 2 path fix flagged `cross-reference`.
 - Never trust an intermediate file the user can edit: `calibrate` re-checks traces, hashes, votes and code.

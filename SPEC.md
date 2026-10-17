@@ -14,7 +14,7 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
 ## Modules
 1. `seal`: canonical JSON of the manifest, then sha256. `seal` writes `manifest.lock`. Every later step verifies
    the hash and stops on mismatch. The manifest holds: metric, comparator, threshold, min_valid_cases, the two
-   outcome sentences, allowed_models, allowed_tools, canaries, require_bare, and the judges; optionally
+   outcome sentences, max_excluded_fraction, allowed_models, allowed_tools, canaries, require_bare, and the judges; optionally
    reference_paths, trust_runner_model and a calibration block. Types and bounds are checked at seal; duplicate
    keys, NaN and Infinity are refused.
 2. `validity`: reads a `claude -p --output-format stream-json --verbose` trace or a `codex exec --json` trace
@@ -27,9 +27,10 @@ Not a runner (promptfoo, caliper, Harbor exist). No UI. No graph framework. No A
 3. `jury`: two judge commands from two different vendors. Each reads the case on stdin and prints
    `{"verdict": "pass"|"fail"}`. Both pass gives PASS; both fail gives FAIL; any other result gives DISAGREE,
    which goes to a queue for a human. Anything that does not parse is JUDGE_ERROR and does not count.
-4. `decide`: verifies the seal, keeps only cases that are VALID and agreed, checks min_valid_cases, applies the
-   comparator, and prints the pre-written sentence. A broken seal, too few valid cases, or a bad input exits
-   non-zero (fail closed).
+4. `decide`: verifies the seal, keeps only cases that are VALID and agreed, refuses when the share of runs left
+   out exceeds max_excluded_fraction, checks min_valid_cases, applies the comparator, and prints the pre-written
+   sentence. A broken seal, too few valid cases, too many runs left out, or a bad input exits non-zero (fail
+   closed).
 5. `calibrate`: reads the votes `run` wrote to `results.jsonl` and a human label file `{"case": "pass"|"fail"}`.
    Reports n, 2x2 counts, raw agreement and Cohen's kappa for judge vs judge and each judge vs the people, plus
    each judge's error rate, then the decision. Passes only if every kappa meets the sealed

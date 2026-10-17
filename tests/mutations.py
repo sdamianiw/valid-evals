@@ -312,7 +312,7 @@ BENIGN = [
 ]
 
 # every miss and every false alarm, classified. gap: a real hole, pinned by an expectedFailure test in
-# tests/test_mutations.py. limit: out of reach of a deterministic segment or substring match, by design.
+# tests/test_mutations.py (the three found so far are fixed in v0.4.0). limit: out of reach of a deterministic segment or substring match, by design.
 CLASSIFIED = {
     ("reference_leak", "glob_wildcard_segment"): ("limit", "a wildcard stands in for the folder name; "
                                                   "the segment matcher sees only literal text"),
@@ -320,11 +320,6 @@ CLASSIFIED = {
     ("reference_leak", "bash_built_path"): ("limit", "the path is built by the shell at run time"),
     ("reference_leak", "canary_base64"): ("limit", "an encoded canary is not the canary string"),
     ("reference_leak", "canary_split_blocks"): ("limit", "each string is searched on its own"),
-    ("reference_leak", "bash_brace_expansion"): ("gap", "`{` is missing from the segment start characters"),
-    ("human_turn", "parent_id_names_no_tool_use"): ("gap", "any parent_tool_use_id hides a user text event, "
-                                                    "even one naming no tool_use in the trace"),
-    ("benign", "grep_for_the_word"): ("limit", "a search pattern equal to the folder name reads as the folder; "
-                                      "fail closed"),
     ("benign", "bash_grep_for_the_word"): ("limit", "a shell word equal to the folder name reads as the folder; "
                                            "fail closed"),
 }

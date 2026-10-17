@@ -84,6 +84,24 @@ class TestDeniedTools(unittest.TestCase):
                                   "05_control_b": 0})
         self.assertIn("pytest", seen["01_add_a"].details["permission_denied"][0])
 
+    def denied(self, denials):
+        from valid_evals import validity
+        lines = trace().splitlines()
+        res = json.loads(lines[-1])
+        res["permission_denials"] = denials
+        return validity.check("\n".join(lines[:-1] + [json.dumps(res)]), manifest())
+
+    def test_two_identical_denials_count_twice(self):
+        d = {"tool_name": "Bash", "tool_input": {"command": "pytest"}}
+        r = self.denied([{**d, "tool_use_id": "a"}, {**d, "tool_use_id": "b"}])
+        self.assertEqual((r.valid, len(r.details["permission_denied"])), (True, 2))
+
+    def test_a_malformed_denial_list_does_not_invalidate_the_run(self):
+        for bad in (["x"], {}, "abc", 5):
+            r = self.denied(bad)
+            self.assertEqual((r.valid, r.details.get("permission_denied")), (True, None), bad)
+
+
 
 def pass_chance(accuracy, labels=("pass",) * 3 + ("fail",) * 3, min_kappa=0.6):
     """Exact chance that a judge right with this probability on each case reaches min_kappa against the labels."""
@@ -100,7 +118,7 @@ def pass_chance(accuracy, labels=("pass",) * 3 + ("fail",) * 3, min_kappa=0.6):
 
 class TestCalibrationPower(unittest.TestCase):
     def test_six_labels_cannot_tell_a_good_judge_from_a_weak_one(self):
-        # README Limits: an 80% judge passes about two times in three; one miss already fails
+        # README Limits: an 80% judge passes about two times in three
         self.assertEqual(round(pass_chance(0.8), 3), 0.655)
         self.assertEqual(round(pass_chance(0.9), 3), 0.886)
         self.assertEqual(round(pass_chance(0.6), 3), 0.233)
