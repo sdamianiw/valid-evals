@@ -15,7 +15,8 @@ Open decisions.
 
 ## State (2026 10 17)
 
-- v0.3.1 on `main`, CI green on Python 3.10 to 3.13. `valid_evals.__version__` is the version of record.
+- v0.4.0 on `main`. The sealed `max_excluded_fraction` (required) refuses a decision when too many runs are left
+  out; denied tool calls are reported per run. CI on 3.10 to 3.13. `valid_evals.__version__` is the version of record.
 - Modules: seal, validity (Claude stream-json and Codex `exec --json`), jury, decide, calibrate, cli.
 - Docs: README (short), docs/REFERENCE.md, docs/LIVE_DEMO.md, docs/PREMORTEM_v0.2.md, docs/REDTEAM_v0.3.md.
 - Real traces pin the formats: tests/fixtures (Claude Code 2.1.301, Codex CLI 0.163.0).
@@ -43,10 +44,19 @@ Open decisions.
 2. Label `labels.json` himself before looking at votes.
 3. Add GitHub topics: evals, llm-evaluation, ai-agents, claude-code, codex, llm-as-judge, pre-registration.
 
-## Open decisions
+## Roadmap (agreed 2026 10 17, cap two weeks)
 
-- Scope of v0.4. Options on the table: stop at v0.3.x and measure the jury; or add a sealed `drift` metric over
-  codebase snapshots (deterministic structural metrics, pre-registered rule), which needs an ADR.
+| Step | What | Who | State |
+|---|---|---|---|
+| 1 | Exclusions cannot lift the score: sealed `max_excluded_fraction`, refuse above it | agent | done, v0.4.0 |
+| 2 | README leads with the denied tests finding; limits of seal, planted runs, calibration power | agent | done, v0.4.0 |
+| 3 | Run the jury live (Max login plus Codex), label blind | author | waiting |
+| 4 | Mutation corpus: per cause recall and false alarms, pinned by a test | agent | in progress |
+| 5 | Per run footprint (files changed, test file touched) in details | agent | later, after 4 |
+
+Out of scope for now: a `drift` metric over snapshots, an external timestamp for the lock, more Codex work.
+Decisions taken by default with the author's OK: exclusion limit refuses (option a); denied calls are reported,
+not a cause.
 
 ## Round 3 review (2026 10 17): framing red team and advisor, audited
 
@@ -62,8 +72,8 @@ Reproduced here:
    about 89% (20k draws). It is a smoke check, not a calibration.
 5. The planted runs were built to be caught; 2 of 2 proves the parser reads the init event and a path.
 
-Proposed order: fix 1 (fail closed), add 2 and 3 to the README limits, then run the jury live, then a mutation
-corpus over real long sessions (settles the compaction question). Drift stays out.
+Exact calibration power, pinned in tests/test_v04.py: with 3 pass and 3 fail labels and min_kappa 0.6, a judge
+right 60%, 80% or 90% of the time passes with probability 0.233, 0.655 or 0.886.
 
 ## Lessons
 
