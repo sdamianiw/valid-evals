@@ -50,8 +50,10 @@ def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
                 queue.append(row)
         rows.append(row)
     results = "".join(json.dumps(r) + "\n" for r in rows)
-    (cases_dir / "results.jsonl").write_text(results)
-    (cases_dir / "human_queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in queue))
+    # newline="\n": the same bytes, and so the printed hash, on Windows too
+    (cases_dir / "results.jsonl").write_text(results, encoding="utf-8", newline="\n")
+    (cases_dir / "human_queue.jsonl").write_text("".join(json.dumps(r) + "\n" for r in queue), encoding="utf-8",
+                                                 newline="\n")
     for r in rows:  # printed before deciding, so a refused decision still shows each run
         denied = len(r["details"].get("permission_denied", []))
         print(f"{r['case']:<14} {'VALID' if r['valid'] else 'INVALID':<8} {r.get('cause') or r.get('verdict')}"

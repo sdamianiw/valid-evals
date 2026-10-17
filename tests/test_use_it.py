@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -62,6 +63,8 @@ class TestUseIt(unittest.TestCase):
         # 5. run: the leak is invalid, the rest are judged; provisional because calibration is sealed
         code, out = step(work, "run", "manifest.json", "cases")
         self.assertEqual(code, 1, out)
+        printed = json.loads([x for x in out.splitlines() if x.startswith("{")][0])["results_sha256"]
+        self.assertEqual(printed, hashlib.sha256((work / "cases" / "results.jsonl").read_bytes()).hexdigest())
         self.assertIn("05             INVALID  reference_leak", out)
         self.assertIn('"counted": 4', out)
         # 6. label blind, then calibrate gives the final decision
@@ -69,6 +72,10 @@ class TestUseIt(unittest.TestCase):
                                           encoding="utf-8")
         code, out = step(work, "calibrate", "manifest.json", "cases", "labels.json")
         self.assertEqual(code, 0, out)
+        # reproducible: the same inputs give byte identical results, run after run
+        first = (work / "cases" / "results.jsonl").read_bytes()
+        self.assertEqual(step(work, "run", "manifest.json", "cases")[0], 1)
+        self.assertEqual((work / "cases" / "results.jsonl").read_bytes(), first)
 
 
 class TestJudgeBytes(unittest.TestCase):

@@ -140,7 +140,7 @@ def seal(manifest_path: Path) -> str:
             raise SealError(f"{lock} already holds another hash; a sealed rule is never resealed in place")
         return h  # same rule: keep the first sealed_at
     # local clock: it catches a rule sealed after the runs, not a clock set back on purpose
-    lock.write_text(f"{h}\nsealed_at {datetime.now(timezone.utc).isoformat()}\n")
+    lock.write_text(f"{h}\nsealed_at {datetime.now(timezone.utc).isoformat()}\n", encoding="utf-8", newline="\n")
     return h
 
 
