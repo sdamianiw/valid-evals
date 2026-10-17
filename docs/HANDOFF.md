@@ -1,0 +1,60 @@
+# Handoff
+
+Checkpoint for the next working session. Update it at the end of each session; keep it short.
+
+## Why this exists
+
+An agent eval score can be wrong for reasons the score cannot show: another model ran, the agent read the answer
+key, a person helped, the bar moved after the results. valid-evals answers one question before a score counts:
+was the run valid, and was the rule fixed before anyone looked? It judges runs other tools produce; it is not a
+runner. The prior art audit (2026 10 16, by the author) found runners, tracing and judges covered elsewhere, and
+no tool combining a sealed rule, a run invalidity gate and a cross vendor jury that must agree.
+
+It does not measure code quality over time. Degradation across many agent sessions is a different question; see
+Open decisions.
+
+## State (2026 10 17)
+
+- v0.3.1 on `main`, CI green on Python 3.10 to 3.13. `valid_evals.__version__` is the version of record.
+- Modules: seal, validity (Claude stream-json and Codex `exec --json`), jury, decide, calibrate, cli.
+- Docs: README (short), docs/REFERENCE.md, docs/LIVE_DEMO.md, docs/PREMORTEM_v0.2.md, docs/REDTEAM_v0.3.md.
+- Real traces pin the formats: tests/fixtures (Claude Code 2.1.301, Codex CLI 0.163.0).
+- Live result: 12 real runs, 0 of 10 clean runs flagged, 2 of 2 planted runs caught, 0.0418 USD. Judges never run
+  live.
+
+## Verified facts about the CLIs (2.1.301 and 0.163.0)
+
+- `--bare` reads only `ANTHROPIC_API_KEY`; without it, `authentication_failed`.
+- `--restricted --strict-mcp-config` works with a subscription login and did not load a CLAUDE.md (0 of 2 vs 2 of
+  2 for a normal run). The init event does not show which mode ran.
+- Builtin plugins (`path: builtin`, source `@builtin`) are listed even under `--bare`.
+- `claude -p` does not echo the prompt as a user event; subagent prompts carry `parent_tool_use_id`.
+- `--tools Task` appears in the trace as tool `Agent`.
+- `error_max_turns` arrives with `is_error: true`; API errors can arrive with `subtype: success, is_error: true`.
+- `claude -p --output-format json --json-schema` puts the verdict in `structured_output`, one line, stdin appended.
+- `codex exec --json` names no model; stdout without `--json` holds only the final message (docs).
+- Codex is listed for the free ChatGPT plan, but CLI access on it is unconfirmed; API keys bill at API rates.
+
+## Waiting on the author
+
+1. Run the jury part of docs/LIVE_DEMO.md on his machine: Claude with his subscription login (default
+   `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with
+   `--codex-model`.
+2. Label `labels.json` himself before looking at votes.
+3. Add GitHub topics: evals, llm-evaluation, ai-agents, claude-code, codex, llm-as-judge, pre-registration.
+
+## Open decisions
+
+- Scope of v0.4. Options on the table: stop at v0.3.x and measure the jury; or add a sealed `drift` metric over
+  codebase snapshots (deterministic structural metrics, pre-registered rule), which needs an ADR.
+
+## Lessons
+
+- A fix for recall needs a false alarm test in the same commit. The round 2 path fix flagged `cross-reference`.
+- Never trust an intermediate file the user can edit: `calibrate` re-checks traces, hashes, votes and code.
+- Placeholders in generated docs must be unique strings; `DEMO` also matched `LIVE_DEMO.md`.
+- Anything sealed that holds a machine path (judge commands) changes the hash per machine; tests mask hashes.
+- When a fixture helper changes (a default assistant message), re-check every test that relied on its absence.
+- Predict, run, compare matched every time it was used here; keep doing it before each fix.
+- Independent agents found what self review missed every round: red team twice, an adversarial reader, an
+  advisor before done. Audit each finding against the code before acting; two of their premises were stale.
