@@ -7,7 +7,7 @@ Checkpoint for the next working session. Update it at the end of each session; k
 An agent eval score can be wrong for reasons the score cannot show: another model ran, the agent read the answer
 key, a person helped, the bar moved after the results. valid-evals answers one question before a score counts:
 was the run valid, and was the rule fixed before anyone looked? It judges runs other tools produce; it is not a
-runner. The prior art audit (2026 10 16, by the author) found runners, tracing and judges covered elsewhere, and
+runner. An independent prior art search (2026 10 17, docs/PRIOR_ART.md) found every piece elsewhere, and
 no tool combining a sealed rule, a run invalidity gate and a cross vendor jury that must agree.
 
 It does not measure code quality over time. Degradation across many agent sessions is a different question; see

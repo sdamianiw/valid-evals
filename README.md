@@ -143,8 +143,12 @@ More in [docs/PREMORTEM_v0.2.md](docs/PREMORTEM_v0.2.md) and [docs/REDTEAM_v0.3.
 
 ## Prior art
 
-Each piece is known: pre-registering an analysis, canary strings in eval data as in BIG-bench, and checking LLM
-judges against human labels with Cohen's kappa. valid-evals applies them before an agent eval score counts.
+Each piece is known: pre-registering an analysis, canary strings as in BIG-bench, transcript scanners that look
+for reward hacking (Inspect Scout, Docent), and panels of judges from different model families (PoLL). The
+closest tool, Inspect Scout, has text pattern scanners and checks them against human labels; its docs describe
+no hash sealed rule, no dropping of flagged runs before scoring, and no rule that two judges must agree.
+valid-evals combines the three as gates that refuse instead of guessing. A team could build the same on top of
+Inspect. Search done on 2026 10 17; sources in [docs/PRIOR_ART.md](docs/PRIOR_ART.md).
 
 ## Status
 
