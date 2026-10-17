@@ -1,6 +1,7 @@
 """Prepare and package the live demo. It never runs an agent or a judge: you run those (docs/LIVE_DEMO.md).
 
-  python3 examples/live/live.py prepare WORKDIR --model M --other-model M2 --codex-cmd CODEX
+  python3 examples/live/live.py prepare WORKDIR --model M --other-model M2 [--isolation restricted|bare]
+                                         [--codex-cmd CODEX] [--codex-model M3]
       copies the tasks into WORKDIR/runs/<case>/ws, writes each run's command to WORKDIR/runs/<case>/cmd.sh,
       writes the reference answers with a fresh canary to WORKDIR/reference, and a manifest to seal
   python3 examples/live/live.py cases WORKDIR
@@ -29,15 +30,21 @@ VERDICT_SCHEMA = {"type": "object", "properties": {"verdict": {"type": "string",
 JUDGE_PROMPT = "Grade the case below against its rubric only. Answer pass or fail."
 
 
-def claude_cmd(model: str, prompt: str) -> str:
-    return " ".join(["claude", "--bare", "-p", shlex.quote(prompt), "--model", shlex.quote(model),
+# How Claude Code is kept clean of host config. "restricted" works with a subscription login: it ignores user,
+# project and local settings (so their hooks) and, in a check on 2.1.301, did not load CLAUDE.md; MCP servers
+# are skipped by --strict-mcp-config. "bare" also skips CLAUDE.md by design but reads only ANTHROPIC_API_KEY.
+ISOLATION = {"restricted": ["--restricted", "--strict-mcp-config"], "bare": ["--bare"]}
+
+
+def claude_cmd(model: str, prompt: str, isolation: str) -> str:
+    return " ".join(["claude", *ISOLATION[isolation], "-p", shlex.quote(prompt), "--model", shlex.quote(model),
                      "--tools", shlex.quote(",".join(TOOLS)),
                      "--allowedTools", shlex.quote("Read,Edit,Glob,Grep,Bash(python *),Bash(python3 *)"),
                      "--max-turns", "15", "--max-budget-usd", "0.50",
                      "--output-format", "stream-json", "--verbose"])
 
 
-def prepare(work: Path, model: str, other_model: str, codex_cmd: str) -> None:
+def prepare(work: Path, model: str, other_model: str, codex_cmd: str, isolation: str, codex_model: str | None) -> None:
     if work.exists():
         sys.exit(f"{work} exists; use a fresh directory so no old trace is mixed in")
     canary = "CANARY-" + secrets.token_hex(8)
@@ -62,7 +69,7 @@ def prepare(work: Path, model: str, other_model: str, codex_cmd: str) -> None:
             shutil.copy(work / "reference" / f"{t.name}.py", ws / "reference" / "solution.py")
         (ws.parent / "task").write_text(t.name)
         (ws.parent / "prompt.txt").write_text(prompt + "\n")
-        (ws.parent / "cmd.sh").write_text(claude_cmd(m, prompt) + "\n")
+        (ws.parent / "cmd.sh").write_text(claude_cmd(m, prompt, isolation) + "\n")
     (work / "verdict.schema.json").write_text(json.dumps(VERDICT_SCHEMA))
     schema = str((work / "verdict.schema.json").resolve())
     manifest = {
@@ -74,10 +81,11 @@ def prepare(work: Path, model: str, other_model: str, codex_cmd: str) -> None:
         "calibration": {"min_kappa": 0.6, "min_labels": 6, "max_judge_error_rate": 0.1},
         "judges": [
             {"name": "claude", "vendor": "anthropic",
-             "cmd": ["claude", "--bare", "-p", JUDGE_PROMPT, "--tools", "", "--output-format", "json",
+             "cmd": ["claude", *ISOLATION[isolation], "-p", JUDGE_PROMPT, "--tools", "", "--output-format", "json",
                      "--json-schema", json.dumps(VERDICT_SCHEMA)]},
             {"name": "codex", "vendor": "openai",
-             "cmd": [codex_cmd, "exec", "--ephemeral", "--skip-git-repo-check", "-s", "read-only",
+             "cmd": [codex_cmd, "exec", *(["-m", codex_model] if codex_model else []),
+                     "--ephemeral", "--skip-git-repo-check", "-s", "read-only",
                      "--output-schema", schema, JUDGE_PROMPT]}],
     }
     (work / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -152,11 +160,14 @@ def main() -> None:
     p.add_argument("--model", required=True, help="the model id the init event reports, copied from a smoke run")
     p.add_argument("--other-model", required=True, help="a different model, for the planted model run")
     p.add_argument("--codex-cmd", default="codex")
+    p.add_argument("--codex-model", help="pin the Codex judge model; omitted, Codex uses its configured default")
+    p.add_argument("--isolation", choices=sorted(ISOLATION), default="restricted",
+                   help="restricted for a subscription login, bare for ANTHROPIC_API_KEY")
     for name in ("cases", "cost"):
         sub.add_parser(name).add_argument("work", type=Path)
     a = ap.parse_args()
     if a.cmd == "prepare":
-        prepare(a.work, a.model, a.other_model, a.codex_cmd)
+        prepare(a.work, a.model, a.other_model, a.codex_cmd, a.isolation, a.codex_model)
     else:
         {"cases": cases, "cost": cost}[a.cmd](a.work)
 

@@ -81,6 +81,11 @@ class TestRealClaudeTraces(unittest.TestCase):
         v = validity.check(text, manifest(allowed_models=["claude-haiku-5-5"], allowed_tools=["Task", "Read"]))
         self.assertEqual(v.details.get("tool_not_allowed"), ["Agent"])
 
+    def test_real_restricted_run_is_valid_under_require_bare(self):
+        text = (FIX / "claude_2_1_301_restricted.jsonl").read_text()
+        v = validity.check(text, manifest(allowed_models=["claude-haiku-5-5"], allowed_tools=[]))
+        self.assertTrue(v.valid, v.details)
+
     def test_real_claude_judge_output_is_read(self):
         from valid_evals import jury
         out = FIX / "claude_2_1_301_judge_json_schema.json"

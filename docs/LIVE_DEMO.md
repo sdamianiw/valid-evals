@@ -12,15 +12,15 @@ Haiku judge call in our check cost 0.0010 USD (`tests/fixtures/claude_2_1_301_ju
 | Item | Check |
 |---|---|
 | Claude Code CLI | `claude --version` (fixtures were captured with 2.1.301) |
-| `ANTHROPIC_API_KEY` exported | `--bare` reads only this key or an `apiKeyHelper`; OAuth and keychain are skipped (`claude --help`). Our bare run without the key failed with `authentication_failed`. |
-| Codex CLI, logged in or `CODEX_API_KEY` set | `codex --version` (checked against 0.163.0) |
+| A Claude login | A subscription login (Pro or Max) works with the default `--isolation restricted`. With `ANTHROPIC_API_KEY` you can use `--isolation bare` instead; `--bare` reads only that key (`claude --help`) and failed with `authentication_failed` without it. |
+| Codex CLI | `codex --version` (checked against 0.163.0). Sign in with `codex login`, or set `CODEX_API_KEY` for the run (official docs). Codex is listed for the free ChatGPT plan, but the plans table does not confirm CLI access on it: try the login first, and fall back to the API key, billed at API rates. |
 | Python 3.10 or later | stdlib only |
 
 ## 1. Smoke run: learn the model id the trace reports
 
 ```bash
 mkdir -p /tmp/ve-smoke && cd /tmp/ve-smoke
-claude --bare -p "Say ok." --model sonnet --tools "" --output-format stream-json --verbose > smoke.jsonl
+claude --restricted --strict-mcp-config -p "Say ok." --model sonnet --tools "" --output-format stream-json --verbose > smoke.jsonl
 python3 -c "import json; [print(e['model'], e.get('plugins'), e.get('mcp_servers')) for e in map(json.loads, open('smoke.jsonl')) if e.get('subtype') == 'init']"
 ```
 
@@ -32,7 +32,8 @@ means your host is not clean.
 
 ```bash
 cd path/to/valid-evals
-python3 examples/live/live.py prepare /tmp/ve-live --model claude-sonnet-5-5 --other-model claude-haiku-5-5
+python3 examples/live/live.py prepare /tmp/ve-live --model claude-sonnet-5-5 --other-model claude-haiku-5-5 \
+  --codex-model YOUR_CODEX_MODEL
 python3 -m valid_evals seal /tmp/ve-live/manifest.json
 ```
 
@@ -54,8 +55,15 @@ Read `/tmp/ve-live/manifest.json` before sealing. Change the threshold, judges o
 after the seal, any edit makes `run` refuse. Commit the manifest and its `.lock` somewhere if you want a
 timestamp.
 
-The Codex judge command uses no `-m`, so it runs your configured default model. Add `-m` with a model id you
-have checked before sealing if you want it pinned. Codex judge output parsing is checked against the docs
+Isolation: `restricted` (the default) runs Claude Code with `--restricted --strict-mcp-config`. It ignores
+user, project and local settings, so their hooks, and skips MCP servers. In a check on 2.1.301 with a
+CLAUDE.md that told the agent to end every answer with a fixed word, a normal run obeyed it 2 of 2 times and a
+restricted run 0 of 2. The trace does not say which mode ran, so keep the generated `cmd.sh` files with the
+results.
+
+Pick the Codex judge model with `--codex-model`, using a model your account can call (on an API key, a small
+fast model keeps the cost down). Without it the judge runs your configured default, which can change under
+you. The model ends up in the sealed manifest. Codex judge output parsing is checked against the docs
 (stdout holds only the final message) but not yet against a live call: if every Codex vote comes back as an
 error, that is the first thing to look at.
 

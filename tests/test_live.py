@@ -58,5 +58,34 @@ class TestLiveHelper(unittest.TestCase):
             self.assertEqual((c["runs_with_cost"], c["runs_without_cost"]), (11, ["01_add_a"]))
 
 
+class TestIsolationModes(unittest.TestCase):
+    def manifest_and_cmd(self, *extra):
+        with tempfile.TemporaryDirectory() as d:
+            work = Path(d) / "w"
+            r = live("prepare", work, "--model", "claude-haiku-5-5", "--other-model", "claude-sonnet-5-5", *extra)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            return (json.loads((work / "manifest.json").read_text()),
+                    (work / "runs" / "01_add_a" / "cmd.sh").read_text())
+
+    def test_default_is_restricted_for_a_subscription_login(self):
+        m, cmd = self.manifest_and_cmd()
+        self.assertIn("claude --restricted --strict-mcp-config -p", cmd)
+        self.assertNotIn("--bare", cmd)
+        claude = m["judges"][0]["cmd"]
+        self.assertEqual(claude[:3], ["claude", "--restricted", "--strict-mcp-config"])
+
+    def test_bare_for_an_api_key(self):
+        m, cmd = self.manifest_and_cmd("--isolation", "bare")
+        self.assertIn("claude --bare -p", cmd)
+        self.assertEqual(m["judges"][0]["cmd"][:2], ["claude", "--bare"])
+
+    def test_codex_judge_model_is_pinned_when_given(self):
+        m, _ = self.manifest_and_cmd("--codex-model", "some-model")
+        codex = m["judges"][1]["cmd"]
+        self.assertEqual(codex[codex.index("-m") + 1], "some-model")
+        m, _ = self.manifest_and_cmd()
+        self.assertNotIn("-m", m["judges"][1]["cmd"])
+
+
 if __name__ == "__main__":
     unittest.main()
