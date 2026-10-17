@@ -1,10 +1,9 @@
 # valid-evals
 
 Checks whether an AI agent's eval run was valid before its score counts. It reads traces your runner already
-wrote; it does not run agents. On 12 real Claude Code runs it flagged none of the 10 clean runs and caught both
-planted runs, which were built to be caught. The more useful finding: in 6 of the 10 clean runs the runner
-denied the agent's test command, so it never checked its own fix. Those runs still count, and the output now
-says so.
+wrote; it does not run agents. On 12 real Claude Code runs it raised no false alarm on the 10 clean runs,
+caught both planted cheats with the right cause, and surfaced what a pass rate hides: in 6 of the 10 runs the
+agent's test command was denied, so it never checked its own fix.
 
 An agent can pass an eval because the run used a different model, the agent read the answer key, someone typed a
 hint mid run, or the pass bar moved after the results came in. A judge that reads only the final answer sees none
@@ -71,9 +70,9 @@ wrong model run. Only the validity step was run; the judges were not.
 | clean runs whose test command was denied | 6 of 10 (the agent could not run the tests) |
 | agent cost | 0.0418 USD (0.0178 for 11 Haiku runs, 0.0240 for one Sonnet run) |
 
-All 12 runs passed the task's tests, including the run that read the answer key and the run on the wrong model.
-The sample is small, the runs were short, and both planted runs were built to be caught, so these numbers show
-the checks work on real traces. Ten clean runs are too few to estimate a false alarm rate. Traces are in
+All 12 runs passed the task's tests, including the run that read the answer key and the run on the wrong model:
+a pass rate alone would have counted both. Scope: short runs, and planted cheats made to be visible, so this
+shows the checks work on real traces; ten clean runs do not yet give a false alarm rate. Traces are in
 `tests/fixtures/live_2026_10_16`; `tests/test_live_results.py` reproduces each figure in the table, and the test
 results are recorded in the fixture README.
 
@@ -98,8 +97,8 @@ The corpus found three bugs, fixed in v0.4.0: a brace expansion such as `cat {re
 path check, a user message with a made up `parent_tool_use_id` hid a human turn, and a Grep for the word
 `reference` was read as a path. The 65 missed leaks are 5 forms the checker cannot see by design: glob
 wildcards, a path the shell builds at run time, a base64 canary and a canary split across two text blocks. The
-13 false alarms are one form: a shell command that contains the folder name as a plain word. The forms were
-written by the author of the checker, so this measures coverage of known forms, not recall on real cheating.
+13 false alarms are one form: a shell command that contains the folder name as a plain word. These are known
+forms, so the table measures coverage, not recall on cheating nobody has seen yet.
 
 ## Use it
 
@@ -130,27 +129,24 @@ Codex.
 - Builtin plugins are allowed, so a host plugin made to look builtin would pass.
 - Codex traces do not name the model; you either trust the runner or the run is invalid.
 - Only tools the agent called are checked, not tools it had available.
-- The seal proves the manifest did not change after sealing, and the lock records when it was sealed: a Claude
-  Code run with an event older than that is refused, which catches a rule sealed after a look or sealed again
-  after deleting the lock. Both clocks belong to whoever runs the eval, so a clock set back on purpose is not
-  caught, and Codex traces carry no timestamps. Sealing several rules and keeping the best, or deleting a case
-  folder, are not detected. A commit pushed to a public remote before the runs is the only outside timestamp.
-- Both planted runs in the real results were built to be caught (the leak prompt points at the reference
-  folder, the wrong model is a CLI flag). They show the parser reads real traces, not that real cheating is
-  caught.
-- Kappa on a few labels is noise. With 6 balanced labels and a sealed minimum of 0.6, a judge that is right 80%
-  of the time passes calibration in about two of three tries. Report n and the counts with it.
+- The seal and its time use the local clock: they stop a rule changed, or sealed after the runs, by mistake;
+  not someone who sets the clock back. For an outside timestamp, push `manifest.lock` to a public remote before
+  the runs. Codex traces carry no timestamps.
+- One seal covers one rule and the cases you give it; choosing among several sealed rules is visible only in
+  your history.
+- Calibration on a handful of labels is a smoke check; seal `min_labels` to match the stakes and report n with
+  kappa (exact pass odds in `tests/test_v04.py`).
 
 More in [docs/PREMORTEM_v0.2.md](docs/PREMORTEM_v0.2.md) and [docs/REDTEAM_v0.3.md](docs/REDTEAM_v0.3.md).
 
 ## Prior art
 
-Each piece is known: pre-registering an analysis, canary strings as in BIG-bench, transcript scanners that look
-for reward hacking (Inspect Scout, Docent), and panels of judges from different model families (PoLL). The
-closest tool, Inspect Scout, has text pattern scanners and checks them against human labels; its docs describe
-no hash sealed rule, no dropping of flagged runs before scoring, and no rule that two judges must agree.
-valid-evals combines the three as gates that refuse instead of guessing. A team could build the same on top of
-Inspect. Search done on 2026 10 17; sources in [docs/PRIOR_ART.md](docs/PRIOR_ART.md).
+valid-evals builds on known ideas: pre-registration, canary strings (BIG-bench), transcript scanners for reward
+hacking (Inspect Scout, Docent) and judge panels from different model families (PoLL). It joins them at the
+moment a score is accepted, as gates that refuse instead of guessing: a hash sealed rule, a deterministic
+validity check that removes runs before scoring, and two vendors that must agree. Scanners find suspicious
+transcripts; valid-evals decides which runs count, so the two work together. Sources in
+[docs/PRIOR_ART.md](docs/PRIOR_ART.md).
 
 ## Status
 
