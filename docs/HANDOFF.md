@@ -48,6 +48,23 @@ Open decisions.
 - Scope of v0.4. Options on the table: stop at v0.3.x and measure the jury; or add a sealed `drift` metric over
   codebase snapshots (deterministic structural metrics, pre-registered rule), which needs an ADR.
 
+## Round 3 review (2026 10 17): framing red team and advisor, audited
+
+Reproduced here:
+
+1. Exclusions inflate the score. `decide` drops INVALID, DISAGREE and JUDGE_ERROR rows from the denominator, so 3
+   PASS plus 7 runs that hit max turns gives value 1.0 and ok. This breaks fail closed. Fix options: refuse when
+   exclusions exceed a sealed fraction, or count run_error and JUDGE_ERROR as FAIL. Owner picks.
+2. 6 of 10 clean live runs had their test command denied and are VALID; the README does not say so.
+3. The seal binds the manifest, not time, the case list or reruns. Sealing after looking, resealing, or deleting a
+   case folder all go through. Today this is a documented limit, not a guard.
+4. Calibration on 6 balanced labels at min_kappa 0.6: an 80% accurate judge passes about 66% of draws, a 90% one
+   about 89% (20k draws). It is a smoke check, not a calibration.
+5. The planted runs were built to be caught; 2 of 2 proves the parser reads the init event and a path.
+
+Proposed order: fix 1 (fail closed), add 2 and 3 to the README limits, then run the jury live, then a mutation
+corpus over real long sessions (settles the compaction question). Drift stays out.
+
 ## Lessons
 
 - A fix for recall needs a false alarm test in the same commit. The round 2 path fix flagged `cross-reference`.
