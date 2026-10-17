@@ -56,6 +56,7 @@ Open decisions.
 | 2 | README leads with the denied tests finding; limits of seal, planted runs, calibration power | agent | done, v0.4.0 |
 | 3 | Run the jury live (Max login plus Codex), label blind | author | waiting |
 | 4 | Mutation corpus: per cause recall and false alarms, pinned by a test | agent | done: 3 bugs fixed, table in README |
+| 6 | Seal time: lock records sealed_at, a run older than it is refused | agent | done; catches self deception, not a clock set back |
 | 5 | Per run footprint (files changed, test file touched) in details | agent | dropped: the trace misses shell writes; `live.py cases` already diffs the workspace (`test_changed`, extra files) |
 
 Out of scope for now: a `drift` metric over snapshots, an external timestamp for the lock, more Codex work.

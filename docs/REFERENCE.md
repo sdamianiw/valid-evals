@@ -24,7 +24,7 @@ Unknown keys, duplicate keys, NaN and Infinity are refused, so a typo cannot swi
 
 | Command | 0 | 1 | 2 |
 |---|---|---|---|
-| `run` | rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, too few counted cases, too many runs left out, bad input |
+| `run` | rule passed, no calibration sealed | rule failed, or provisional | refused: broken seal, a run older than the seal, too few counted cases, too many runs left out, bad input |
 | `calibrate` | jury calibrated and rule passed | jury calibrated, rule failed | refused: jury not calibrated, no calibration sealed, too few or bad labels, `results.jsonl` not from this rule, code and traces |
 | `check` | every trace valid | a trace is invalid | refused |
 

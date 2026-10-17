@@ -58,7 +58,9 @@ class TestExclusionLimit(unittest.TestCase):
         scripted = str(ROOT / "examples" / "demo" / "scripted_judge.py")
         judges = [{"name": "a", "vendor": "anthropic", "cmd": [sys.executable, scripted, "a"]},
                   {"name": "b", "vendor": "openai", "cmd": [sys.executable, scripted, "b"]}]
-        max_turns = (FIX / "claude_2_1_301_max_turns.jsonl").read_text()
+        # the fixture ran on 2026 10 16, before this seal: move it after, the test is about exclusions
+        max_turns = (FIX / "claude_2_1_301_max_turns.jsonl").read_text().replace('"timestamp": "2026-10-16',
+                                                                                    '"timestamp": "2099-10-16')
         for limit, code in ((0.25, 2), (1, 0)):
             p = sealed(max_excluded_fraction=limit, min_valid_cases=1, judges=judges)
             for i in range(4):

@@ -33,7 +33,10 @@ def _check(manifest: dict, trace: Path) -> dict:
 def cmd_run(manifest_path: Path, cases_dir: Path) -> int:
     m = seal.verify(manifest_path)
     rows, queue = [], []
-    for case in sorted(p for p in cases_dir.iterdir() if p.is_dir()):
+    cases = sorted(p for p in cases_dir.iterdir() if p.is_dir())
+    for case in cases:  # before any judge call: a run older than the rule never counts
+        seal.check_started_after(manifest_path, case.name, (case / "trace.jsonl").read_text(encoding="utf-8"))
+    for case in cases:
         # paths relative to cases_dir, so results.jsonl and its hash are the same on any machine
         row = {"case": case.name, **_check(m, case / "trace.jsonl"), "trace": f"{case.name}/trace.jsonl",
                "manifest_sha256": seal.digest(m), "code_sha256": seal.code_digest()}

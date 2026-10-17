@@ -69,6 +69,7 @@ reference files; the run is INVALID if any canary appears anywhere in the trace.
 | 21 | The code that applies the rule changed between run and calibrate | code_sha256 in every row; calibrate refuses a mismatch |
 | 22 | Runs that crash, run out of turns or split the jury are dropped, so hard tasks vanish and the rate rises | sealed max_excluded_fraction; above it the decision is refused |
 | 23 | The runner denied the agent's test command, so it never checked its work | denials reported in details and next to the run; not a cause, the allowlist is the author's setting |
+| 24 | The rule is sealed after looking at the runs, or sealed again after deleting the lock | the lock records sealed_at; run and calibrate refuse a trace event older than it (local clocks, Claude traces only) |
 
 ## DoD
 Unit tests for every guard (a RED test first), one command demo on fixtures, README figures only from real runs

@@ -38,6 +38,7 @@ def verify_rows(manifest_path: Path, rows: list[dict], cases_dir: Path) -> None:
         raw = trace.read_bytes()
         if hashlib.sha256(raw).hexdigest() != r.get("trace_sha256"):
             raise CalibrationError(f"{r.get('case')}: trace changed since run")
+        seal.check_started_after(manifest_path, str(r.get("case")), raw.decode("utf-8"))
         v = validity.check(raw.decode("utf-8"), m)
         if (v.valid, v.cause) != (r.get("valid"), r.get("cause")):
             raise CalibrationError(f"{r.get('case')}: stored validity does not match the trace")

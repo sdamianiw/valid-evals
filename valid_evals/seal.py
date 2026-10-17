@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 
 REQUIRED = ("metric", "comparator", "threshold", "min_valid_cases", "max_excluded_fraction", "outcome",
@@ -132,10 +133,39 @@ def seal(manifest_path: Path) -> str:
     validate(m)
     h = digest(m)
     lock = lock_path(Path(manifest_path))
-    if lock.exists() and lock.read_text().strip() != h:
-        raise SealError(f"{lock} already holds another hash; a sealed rule is never resealed in place")
-    lock.write_text(h + "\n")
+    if lock.exists():
+        if lock.read_text().split("\n")[0].strip() != h:
+            raise SealError(f"{lock} already holds another hash; a sealed rule is never resealed in place")
+        return h  # same rule: keep the first sealed_at
+    # local clock: it catches a rule sealed after the runs, not a clock set back on purpose
+    lock.write_text(f"{h}\nsealed_at {datetime.now(timezone.utc).isoformat()}\n")
     return h
+
+
+def _time(s: str) -> datetime:
+    t = datetime.fromisoformat(s.replace("Z", "+00:00"))  # Python 3.10 does not read Z
+    if t.tzinfo is None:
+        raise SealError(f"time without a zone: {s}")
+    return t
+
+
+def sealed_at(manifest_path: Path) -> datetime:
+    for line in lock_path(Path(manifest_path)).read_text().splitlines()[1:]:
+        if line.startswith("sealed_at "):
+            return _time(line.split()[1])
+    raise SealError("the lock does not say when the rule was sealed; seal again in a new folder")
+
+
+def check_started_after(manifest_path: Path, case: str, events_text: str) -> None:
+    """Refuse a run with any event older than the seal. Traces without timestamps (Codex) are not checked."""
+    at = sealed_at(manifest_path)
+    for line in events_text.splitlines():
+        try:
+            ts = json.loads(line).get("timestamp")
+        except (json.JSONDecodeError, AttributeError):
+            continue  # validity reports unreadable lines
+        if isinstance(ts, str) and _time(ts) < at:
+            raise SealError(f"{case}: the run started at {ts}, before the rule was sealed at {at.isoformat()}")
 
 
 def verify(manifest_path: Path) -> dict:
@@ -144,7 +174,7 @@ def verify(manifest_path: Path) -> dict:
     if not lock.exists():
         raise SealError(f"no {lock}: seal the manifest before the run")
     m = load(manifest_path)
-    if digest(m) != lock.read_text().strip():
+    if digest(m) != lock.read_text().split("\n")[0].strip():
         raise SealError("manifest changed after sealing; decision refused")
     validate(m)
     return m

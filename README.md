@@ -130,9 +130,11 @@ Codex.
 - Builtin plugins are allowed, so a host plugin made to look builtin would pass.
 - Codex traces do not name the model; you either trust the runner or the run is invalid.
 - Only tools the agent called are checked, not tools it had available.
-- The seal proves the manifest did not change after sealing. It does not prove when it was sealed, which cases
-  were run, or how many times: sealing after a look, sealing several rules and keeping the best, or deleting a
-  case folder are not detected. A commit pushed before the runs is the only timestamp.
+- The seal proves the manifest did not change after sealing, and the lock records when it was sealed: a Claude
+  Code run with an event older than that is refused, which catches a rule sealed after a look or sealed again
+  after deleting the lock. Both clocks belong to whoever runs the eval, so a clock set back on purpose is not
+  caught, and Codex traces carry no timestamps. Sealing several rules and keeping the best, or deleting a case
+  folder, are not detected. A commit pushed to a public remote before the runs is the only outside timestamp.
 - Both planted runs in the real results were built to be caught (the leak prompt points at the reference
   folder, the wrong model is a CLI flag). They show the parser reads real traces, not that real cheating is
   caught.
