@@ -27,12 +27,23 @@ Unknown keys, duplicate keys, NaN and Infinity are refused, so a typo cannot swi
 | `calibrate` | jury calibrated and rule passed | jury calibrated, rule failed | refused: jury not calibrated, no calibration sealed, too few or bad labels, `results.jsonl` not from this rule, code and traces |
 | `check` | every trace valid | a trace is invalid | refused |
 
+## Running the agent
+
+For Claude Code, `--tools` limits what the agent can call and `--allowedTools` only pre approves, so pass both:
+
+```bash
+claude --restricted --strict-mcp-config -p "$TASK" --model claude-sonnet-5-5 \
+  --tools "Read,Grep,Edit" --allowedTools "Read,Grep,Edit" \
+  --output-format stream-json --verbose > cases/01/trace.jsonl
+```
+
 ## Keeping Claude Code clean of host config
 
 Run the agent and the Claude judge with `--bare` if you use `ANTHROPIC_API_KEY`, or with
-`--restricted --strict-mcp-config` if you log in with a subscription. `--bare` reads only the API key. With a
-subscription login on 2.1.301, `--restricted` ignored the settings files (and their hooks) and did not load a
-CLAUDE.md that a normal run obeyed; `--strict-mcp-config` drops MCP servers. The init event shows MCP servers and
+`--restricted --strict-mcp-config` if you log in with a subscription. `--bare` reads only the API key. `--restricted`
+ignores user, project and local settings files, so their hooks, and `--strict-mcp-config` drops MCP servers
+(both per `claude --help`). With a subscription login on 2.1.301, a restricted run also did not load a CLAUDE.md
+that a normal run obeyed (0 of 2 against 2 of 2). The init event shows MCP servers and
 plugins, which `require_bare` checks, but it does not show which of the two modes ran, so keep the command with
 the results.
 
@@ -77,5 +88,5 @@ do not change the decision.
 version of the code, every case folder needs its row, each trace is hashed and checked again, and each verdict
 must follow from its votes.
 
-Every decision prints a Wilson 95% interval and the pass rate if every split case had gone to fail or to pass.
+`run` prints a Wilson 95% interval and the pass rate if every split case had gone to fail or to pass.
 When that range crosses the bar, the split cases decide the outcome.

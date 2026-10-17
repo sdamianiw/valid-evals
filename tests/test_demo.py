@@ -35,13 +35,13 @@ class TestReadmeShowsTheRealDemo(unittest.TestCase):
 
 
 
-class TestReadmeTestCount(unittest.TestCase):
-    def test_readme_states_the_real_test_count(self):
+class TestReadmeVersion(unittest.TestCase):
+    def test_readme_status_names_the_package_version(self):
         import re
-        n = unittest.TestLoader().discover(str(ROOT / "tests"), top_level_dir=str(ROOT)).countTestCases()
-        stated = int(re.search(r"and (\d+) tests pass", (ROOT / "README.md").read_text()).group(1))
-        self.assertEqual(stated, n)
-
+        sys.path.insert(0, str(ROOT))
+        import valid_evals
+        stated = re.search(r"## Status\n\nv([0-9.]+)\.", (ROOT / "README.md").read_text()).group(1)
+        self.assertEqual(stated, valid_evals.__version__)
 
 if __name__ == "__main__":
     unittest.main()
