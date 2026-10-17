@@ -156,7 +156,9 @@ together. Sources in
 
 ## Status
 
-v0.5.0. The offline demo and the test suite pass on Python 3.10 to 3.13 in CI. Real Claude Code 2.1.301 and Codex CLI
+v0.5.1. The offline demo and the test suite pass in CI on Linux, macOS and Windows with Python 3.10 to
+3.13; `tests/test_use_it.py` runs the steps above from another folder with a Windows console encoding, and
+checks that a rerun gives byte identical results. Real Claude Code 2.1.301 and Codex CLI
 0.163.0 traces, redacted, pin the trace formats. The demo figures are synthetic. Judge agreement on real runs
 has not been measured yet.
 

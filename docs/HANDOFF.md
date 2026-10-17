@@ -82,6 +82,10 @@ right 60%, 80% or 90% of the time passes with probability 0.233, 0.655 or 0.886.
 
 ## Lessons
 
+- Reproducible means a matrix, not a claim: CI on three OS with four Pythons found the cp1252 jury crash that
+  Linux could not show. Predict it, emulate it locally (PYTHONIOENCODING=cp1252), then let CI confirm.
+- To undo a mutation test, edit the line back; `git checkout` of the file also reverts uncommitted fixes.
+
 - Sort red team findings by adversary before fixing. Agent side gaps get code; deliberate edits by the person
   running the eval get one line of threat model, since only an outside record stops them.
 
