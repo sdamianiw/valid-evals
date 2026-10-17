@@ -42,6 +42,10 @@ Open decisions.
    `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with
    `--codex-model`.
 2. Label `labels.json` himself before looking at votes.
+   After the agent runs, check the `(N tool calls denied)` notes. The 2026 10 16 runs used the older allowlist
+   `Bash(python3 -m unittest*)` and the agent called `python ...`; the current `Bash(python *)` should cover
+   that, but piped commands such as `python test_app.py | tail` are unverified. If denials remain, widen the
+   allowlist before trusting the pass rate.
 3. Add GitHub topics: evals, llm-evaluation, ai-agents, claude-code, codex, llm-as-judge, pre-registration.
 
 ## Roadmap (agreed 2026 10 17, cap two weeks)
@@ -52,7 +56,7 @@ Open decisions.
 | 2 | README leads with the denied tests finding; limits of seal, planted runs, calibration power | agent | done, v0.4.0 |
 | 3 | Run the jury live (Max login plus Codex), label blind | author | waiting |
 | 4 | Mutation corpus: per cause recall and false alarms, pinned by a test | agent | done: 3 bugs fixed, table in README |
-| 5 | Per run footprint (files changed, test file touched) in details | agent | later, after 4 |
+| 5 | Per run footprint (files changed, test file touched) in details | agent | dropped: the trace misses shell writes; `live.py cases` already diffs the workspace (`test_changed`, extra files) |
 
 Out of scope for now: a `drift` metric over snapshots, an external timestamp for the lock, more Codex work.
 Decisions taken by default with the author's OK: exclusion limit refuses (option a); denied calls are reported,
