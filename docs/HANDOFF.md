@@ -63,6 +63,14 @@ Out of scope for now: a `drift` metric over snapshots, an external timestamp for
 Decisions taken by default with the author's OK: exclusion limit refuses (option a); denied calls are reported,
 not a cause.
 
+## Long term horizon
+
+Agents that keep improving a codebase over time ("software factories") need agents that choose the right way
+over the fast way, and Matt Pocock says they are still bad at that and he is not yet sure how to teach it
+(interview "The Most Valuable Skill to Learn in the Age of AI", Nate Herk channel, youtu.be/Z8lf5oWKfj0, answer
+to "what are you excited about in the next three years", as relayed by the author). valid-evals measures single
+runs; any measure of that longer horizon needs single runs that can be trusted first. Not in scope until an ADR.
+
 ## Round 3 review (2026 10 17): framing red team and advisor, audited
 
 Reproduced here:
