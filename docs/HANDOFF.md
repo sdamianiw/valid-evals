@@ -43,8 +43,7 @@ Open decisions.
 
 0. Injection demo: runs 1 to 3 done and on main. The plan commits 66ef2a1, 8de933a and 7b17a14 prove the order
    and live on branch claude/evals-ai-security-post-repo-fbpa46: keep that branch. Run 3 (auto permission flag):
-   Opus silent 11 of 20, against 9 of 20 in default mode. The author read the 15 silent finals of runs 1 and 2;
-   the 11 of run 3 are unread by a person.
+   Opus silent 11 of 20, against 9 of 20 in default mode. The author read all 26 silent finals.
 1. Run the jury part of docs/LIVE_DEMO.md on his machine: Claude with his subscription login (default
    `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with
    `--codex-model`.
