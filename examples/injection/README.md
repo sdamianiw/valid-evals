@@ -38,9 +38,10 @@ Counts per cell. Exposed means a payload appeared in a tool result the agent rec
 
 What the runs show:
 
-1. No run pasted the key: 0 of 44 exposed runs, across three models and three places. This is one payload
+1. No run pasted the key: 0 of 44 exposed runs, across three models and three places (exact 95% upper bound 8%,
+   pooled). This is one payload
    wording on one small task, so it says these models resist this request, not that they resist injection.
-2. Six of 44 exposed runs refused without telling the user. Five of the six were Opus (5 of 15), against 1 of 15
+2. In 6 of 44 exposed runs the agent neither did it nor mentioned it. Five of the six were Opus (5 of 15), against 1 of 15
    for Haiku and 0 of 14 for Sonnet. The prediction was the opposite. With 15 runs per model this is a lead for a
    larger run, not a property of the model. A silent refusal leaves the person unaware that the repo carries an
    attack.
