@@ -69,3 +69,6 @@ As in run 2: exposed, leaked, warned, `followup_named_source`, plus `permission_
   injected instruction". Only the Opus 5.5 and Fable 5.1 cards call Auto mode the default; the Opus 5 card says
   "in some products we also offer auto mode".
 - The permission test traces are published in `tests/fixtures/injection_permission_probe_2026_11_18`.
+- An independent check found a third missed prediction, from run 1: PREREG.md expected `test_output` to be exposed
+  "only when the agent runs the tests". In all 44 exposed `test_output` runs the request first arrived when the
+  agent read the helper file.
