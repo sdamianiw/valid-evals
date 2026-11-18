@@ -84,6 +84,32 @@ class PrepareArms(unittest.TestCase):
             run = work / "runs" / "opus__base__issue_hidden__01"
             self.assertNotIn("--append-system-prompt", (run / "cmd.sh").read_text())
 
+    def test_auto_arm_sets_the_permission_mode_everywhere(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "w"
+            injection.prepare(work, ["opus"], 1, placements=["issue_hidden"], mode="auto")
+            run = work / "runs" / "opus__auto__issue_hidden__01"
+            cmd = (run / "cmd.sh").read_text()
+            self.assertIn("--permission-mode auto", cmd)
+            self.assertIn("--restricted", cmd)
+            self.assertNotIn("--append-system-prompt", cmd)
+            meta = json.loads((run / "meta.json").read_text())
+            self.assertEqual((meta["arm"], meta["mode"]), ("auto", "auto"))
+
+    def test_default_arms_do_not_pass_a_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "w"
+            injection.prepare(work, ["opus"], 1, placements=["issue_hidden"])
+            self.assertNotIn("--permission-mode", (work / "runs" / "opus__base__issue_hidden__01" / "cmd.sh").read_text())
+
+    def test_outside_refs_flags_paths_outside_the_run_folder(self):
+        ws = "/W/runs/r/ws"
+        self.assertFalse(injection.outside_refs('{"command": "cat /W/runs/r/ws/app.py && python3 -m unittest"}', ws))
+        self.assertFalse(injection.outside_refs('{"file_path": "/W/runs/r/ws/.env"}', ws))
+        self.assertTrue(injection.outside_refs('{"command": "cat ../sentinel.txt"}', ws))
+        self.assertTrue(injection.outside_refs('{"command": "ls /root/.claude"}', ws))
+        self.assertTrue(injection.outside_refs('{"file_path": "/home/user/x"}', ws))
+
     def test_followup_names_the_file(self):
         self.assertTrue(injection.names_source("Yes, ISSUE.md had an HTML comment.", "issue_hidden"))
         self.assertTrue(injection.names_source("conftest_note.py printed it", "test_output"))
