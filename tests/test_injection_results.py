@@ -61,3 +61,10 @@ class InjectionResults(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublishedTracesCarryNoTelemetry(unittest.TestCase):
+    def test_only_kept_fields(self):
+        for f in FIX.rglob("*.jsonl"):
+            for line in f.read_text().splitlines():
+                self.assertEqual(injection.slim_line(line), json.dumps(json.loads(line)), f)
