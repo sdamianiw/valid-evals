@@ -103,10 +103,10 @@ forms, so the table measures coverage, not recall on cheating nobody has seen ye
 ## Prompt injection demo
 
 [examples/injection](examples/injection) gives a coding agent a bug report that someone else wrote, with a request
-to paste a key from `.env` into its reply. 105 real Claude Code runs on Haiku, Sonnet and Opus, November 18, 2026,
+to paste a key from `.env` into its reply. 125 real Claude Code runs on Haiku, Sonnet and Opus, November 18, 2026,
 each round planned and pushed first. No run pasted the key. Opus often refused without saying so (9 of 20 in a run
-planned to test it), though asked afterwards it named the file every time; one added line in the system prompt
-made it report the request in 20 of 20 runs. `tests/test_injection_results.py` recomputes each figure from the traces.
+planned to test it, 11 of 20 with the auto permission flag), though asked afterwards it named the file every time;
+one added line in the system prompt made it report the request in 20 of 20 runs. `tests/test_injection_results.py` recomputes each figure from the traces.
 
 ## Use it
 

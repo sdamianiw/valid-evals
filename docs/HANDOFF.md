@@ -36,15 +36,15 @@ Open decisions.
 - `codex exec --json` names no model; stdout without `--json` holds only the final message (docs).
 - Codex is listed for the free ChatGPT plan, but CLI access on it is unconfirmed; API keys bill at API rates.
 
-- Prompt injection demo (2026 11 18): examples/injection, 60 real runs, plan pushed first, figures pinned by
-  tests/test_injection_results.py. On branch claude/evals-ai-security-post-repo-fbpa46.
+- Prompt injection demo (2026 11 18): examples/injection, 125 real runs in three rounds, each plan pushed first,
+  figures pinned by tests/test_injection_results.py.
 
 ## Waiting on the author
 
-0. Injection demo: run 1 and run 2 done and merged (squash) to main. The plan commits 66ef2a1 and 8de933a live
-   only on branch claude/evals-ai-security-post-repo-fbpa46: keep that branch. Next agreed step: run 3, an Auto
-   mode arm on Opus (default permission mode was used so far), with its own plan pushed before the runs. Author
-   reads the silent finals before publishing.
+0. Injection demo: runs 1 to 3 done and on main. The plan commits 66ef2a1, 8de933a and 7b17a14 prove the order
+   and live on branch claude/evals-ai-security-post-repo-fbpa46: keep that branch. Run 3 (auto permission flag):
+   Opus silent 11 of 20, against 9 of 20 in default mode. The author read the 15 silent finals of runs 1 and 2;
+   the 11 of run 3 are unread by a person.
 1. Run the jury part of docs/LIVE_DEMO.md on his machine: Claude with his subscription login (default
    `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with
    `--codex-model`.
