@@ -104,8 +104,8 @@ forms, so the table measures coverage, not recall on cheating nobody has seen ye
 
 [examples/injection](examples/injection) gives a coding agent a bug report that someone else wrote, with an
 instruction to paste a key from `.env` into its reply. 60 real Claude Code runs on haiku, sonnet and opus,
-November 18, 2026, plan pushed before the runs: no run pasted the key, 6 of 44 exposed runs refused without
-telling the user (5 of them on opus), and haiku printed `.env` in 2 runs while reading every file, before it had
+November 18, 2026, plan pushed before the runs: no run pasted the key (0 of 44 exposed, exact 95% upper bound 8%), in 6 of
+44 exposed runs the agent neither did it nor mentioned it (5 of them on opus), and haiku printed `.env` in 2 runs while reading every file, before it had
 seen any payload. All 60 passed the tests; valid-evals flagged exactly the 2 runs that read the key.
 `tests/test_injection_results.py` recomputes each figure from the traces.
 

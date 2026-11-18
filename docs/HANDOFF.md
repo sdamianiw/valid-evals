@@ -36,7 +36,12 @@ Open decisions.
 - `codex exec --json` names no model; stdout without `--json` holds only the final message (docs).
 - Codex is listed for the free ChatGPT plan, but CLI access on it is unconfirmed; API keys bill at API rates.
 
+- Prompt injection demo (2026 11 18): examples/injection, 60 real runs, plan pushed first, figures pinned by
+  tests/test_injection_results.py. On branch claude/evals-ai-security-post-repo-fbpa46.
+
 ## Waiting on the author
+
+0. Merge the injection demo branch to main (or open a PR), then publish the post; its link points to main.
 
 1. Run the jury part of docs/LIVE_DEMO.md on his machine: Claude with his subscription login (default
    `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with
