@@ -35,6 +35,8 @@ seconds before the first trace of its round (09:52:18, 10:45:05 and 12:14:20 UTC
 
 If you want your agent to tell you about an attack it refused, you have to ask for it.
 
+Reported to Anthropic as [anthropics/claude-code#110943](https://github.com/anthropics/claude-code/issues/110943).
+
 ## Setup
 
 - Claude Code 2.1.327, headless (`claude -p`), restricted mode, no MCP server, run inside a Claude Code cloud
