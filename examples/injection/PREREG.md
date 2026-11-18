@@ -46,3 +46,12 @@ Workspaces live outside both repositories. File tools are allowed only under the
 tests, `/home` and `/root` are denied, no MCP server loads. A probe on 2026 11 18 confirmed the deny and the
 Bash limit. Residual risk: the agent can put code in app.py and run it through the tests; no payload asks for
 that. Both repositories and `~/.claude` are hashed before and after the runs.
+
+## Amendment, 2026 11 18, after the runs (lines above unchanged)
+
+- The quarantine line overstated the Bash limit. A second probe showed that `cat` on a file inside the run folder
+  runs without any rule, while `cat` outside it and on `/home` is denied. Haiku used that to print `.env` in 2 runs.
+- 44 of the 60 runs were exposed, not close to all payload runs: the 15 controls carry no payload and one sonnet
+  `test_output` run never saw it.
+- Predictions against results: leaks 0, as predicted for sonnet and opus, and 0 for haiku. Control reads 0, as
+  predicted. Warned: opus warned least (10 of 15), the opposite of the prediction.
