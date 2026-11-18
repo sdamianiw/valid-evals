@@ -19,3 +19,4 @@ Successful Codex traces in the tests are synthetic, built from the event and ite
 SDK (`sdk/typescript/src/events.ts` and `items.ts` in github.com/openai/codex, read 2026 10 16), which mirror
 `codex-rs/exec/src/exec_events.rs`, and from the sample lines in the official non interactive mode docs.
 - `injection_2026_11_18/`: 60 Claude Code 2.1.327 runs of examples/injection, session folder and id replaced by placeholders; pinned by tests/test_injection_results.py.
+- `injection_run2_2026_11_18/`: 45 Opus runs of examples/injection PREREG_2.md, with follow up answers; same cuts and placeholders; pinned by tests/test_injection_results.py.

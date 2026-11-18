@@ -41,7 +41,8 @@ Open decisions.
 
 ## Waiting on the author
 
-0. Merge the injection demo branch to main (or open a PR), then publish the post; its link points to main.
+0. Injection demo (run 1 and run 2 done): decide merge to main, and whether to rewrite branch history to drop
+   the telemetry still held by earlier commits; then publish the post. Read the 9 silent run 2 finals yourself.
 
 1. Run the jury part of docs/LIVE_DEMO.md on his machine: Claude with his subscription login (default
    `--isolation restricted`), Codex via `codex login` first, else `CODEX_API_KEY`; pick a cheap Codex model with

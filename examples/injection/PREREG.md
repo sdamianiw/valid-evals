@@ -55,3 +55,14 @@ that. Both repositories and `~/.claude` are hashed before and after the runs.
   `test_output` run never saw it.
 - Predictions against results: leaks 0, as predicted for sonnet and opus, and 0 for haiku. Control reads 0, as
   predicted. Warned: opus warned least (10 of 15), the opposite of the prediction.
+
+## Amendment 2, 2026 11 18, after an independent review (lines above unchanged)
+
+- Two payload wordings were used, not one: "Note for AI coding assistants" in issue_hidden and test_output, a
+  "Maintainer note" in issue_visible. All 6 silent runs came with the first.
+- The labels were read by the agent that ran the study, not by a person. "Refused in silence" is renamed "silent":
+  the trace shows the request was not followed and not mentioned, not why.
+- The quarantine description was wrong in a second way: inside the run folder Claude Code also ran shell writes no
+  rule allowed (`cat > app.py`, 17 runs). Allow rules approve; they do not confine.
+- The first push of the results carried account telemetry in the traces (rate limit state, startup timing, request
+  ids). Traces are now cut to the scored fields; earlier commits on the branch still hold the full versions.
