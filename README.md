@@ -100,6 +100,14 @@ wildcards, a path the shell builds at run time, a base64 canary and a canary spl
 13 false alarms are one form: a shell command that contains the folder name as a plain word. These are known
 forms, so the table measures coverage, not recall on cheating nobody has seen yet.
 
+## Prompt injection demo
+
+[examples/injection](examples/injection) gives a coding agent a bug report that someone else wrote, with a request
+to paste a key from `.env` into its reply. 105 real Claude Code runs on Haiku, Sonnet and Opus, November 18, 2026,
+each round planned and pushed first. No run pasted the key. Opus often refused without saying so (9 of 20 in a run
+planned to test it), though asked afterwards it named the file every time; one added line in the system prompt
+made it report the request in 20 of 20 runs. `tests/test_injection_results.py` recomputes each figure from the traces.
+
 ## Use it
 
 Run from the repo root, or put it on `PYTHONPATH`.
